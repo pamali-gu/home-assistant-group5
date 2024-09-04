@@ -20,7 +20,7 @@ from aioesphomeapi import (
     VoiceAssistantTimerEventType,
 )
 
-from homeassistant.components import assist_satellite, media_player, tts
+from homeassistant.components import assist_satellite, tts
 from homeassistant.components.assist_pipeline import (
     PipelineEvent,
     PipelineEventType,
@@ -123,10 +123,7 @@ class EsphomeAssistSatellite(
         self._tts_streaming_task: asyncio.Task | None = None
         self._udp_server: VoiceAssistantUDPServer | None = None
 
-        self._tts_format: str | None = None
-        self._tts_sample_rate: int | None = None
-        self._tts_sample_channels: int | None = None
-        self._tts_sample_bytes: int | None = None
+        self._tts_options: dict[str, Any] | None = None
 
     @property
     def pipeline_entity_id(self) -> str | None:
@@ -151,24 +148,9 @@ class EsphomeAssistSatellite(
         )
 
     @property
-    def tts_format(self) -> str | None:
-        """Preferred media format for text-to-speech."""
-        return self._tts_format
-
-    @property
-    def tts_sample_rate(self) -> int | None:
-        """Preferred sample rate for text-to-speech."""
-        return self._tts_sample_rate
-
-    @property
-    def tts_sample_channels(self) -> int | None:
-        """Preferred number of audio channels for text-to-speech."""
-        return self._tts_sample_channels
-
-    @property
-    def tts_sample_bytes(self) -> int | None:
-        """Preferred width of audio samples for text-to-speech."""
-        return self._tts_sample_bytes
+    def tts_options(self) -> dict[str, Any] | None:
+        """Options passed for text-to-speech."""
+        return self._tts_options
 
     async def async_added_to_hass(self) -> None:
         """Run when entity about to be added to hass."""
@@ -321,9 +303,12 @@ class EsphomeAssistSatellite(
 
         if feature_flags & VoiceAssistantFeature.SPEAKER:
             # Streamed WAV audio
-            self._tts_format = "wav"
-            self._tts_sample_rate = 16000
-            self._tts_sample_channels = 1
+            self._tts_options = {
+                tts.ATTR_PREFERRED_FORMAT: "wav",
+                tts.ATTR_PREFERRED_SAMPLE_RATE: 16000,
+                tts.ATTR_PREFERRED_SAMPLE_CHANNELS: 1,
+                tts.ATTR_PREFERRED_SAMPLE_BYTES: 2,
+            }
         else:
             # Media player
             self._update_tts_format()
@@ -382,24 +367,16 @@ class EsphomeAssistSatellite(
 
     def _update_tts_format(self) -> None:
         """Update the TTS format from the first media player."""
-        assert (self.registry_entry is not None) and (
-            self.registry_entry.device_id is not None
-        )
-        ent_reg = er.async_get(self.hass)
-        entries = er.async_entries_for_device(ent_reg, self.registry_entry.device_id)
-        if media_player_id := next(
-            (e.entity_id for e in entries if e.domain == media_player.DOMAIN), None
-        ):
-            for supported_format in self.entry_data.media_player_formats[
-                media_player_id
-            ]:
-                if supported_format.purpose == MediaPlayerFormatPurpose.ANNOUNCEMENT:
-                    self._tts_format = supported_format.format
-                    self._tts_sample_rate = supported_format.sample_rate
-                    self._tts_sample_channels = supported_format.num_channels
-                    self._tts_sample_bytes = 2
-                    _LOGGER.debug("Preferred TTS format: %s", supported_format)
-                    break
+        for supported_format in self.entry_data.media_player_formats.values():
+            # Find first announcement format
+            if supported_format.purpose == MediaPlayerFormatPurpose.ANNOUNCEMENT:
+                self._tts_options = {
+                    tts.ATTR_PREFERRED_FORMAT: supported_format.format,
+                    tts.ATTR_PREFERRED_SAMPLE_RATE: supported_format.sample_rate,
+                    tts.ATTR_PREFERRED_SAMPLE_CHANNELS: supported_format.num_channels,
+                    tts.ATTR_PREFERRED_SAMPLE_BYTES: 2,
+                }
+                break
 
     async def _stream_tts_audio(
         self,
