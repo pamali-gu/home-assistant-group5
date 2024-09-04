@@ -66,6 +66,39 @@ class AssistSatelliteEntity(entity.Entity):
         """Entity ID of the VAD sensitivity to use for the next conversation."""
         return self._attr_vad_sensitivity_entity_id
 
+    @property
+    def tts_format(self) -> str | None:
+        """Preferred media format for text-to-speech.
+
+        None will use whatever the text-to-speech system returns (usually mp3).
+        """
+        return None
+
+    @property
+    def tts_sample_rate(self) -> int | None:
+        """Preferred sample rate for text-to-speech.
+
+        None will use whatever the text-to-speech system returns.
+        """
+        return None
+
+    @property
+    def tts_sample_channels(self) -> int | None:
+        """Preferred number of audio channels for text-to-speech.
+
+        None will use whatever the text-to-speech system returns.
+        """
+        return None
+
+    @property
+    def tts_sample_bytes(self) -> int | None:
+        """Preferred width of audio samples for text-to-speech.
+
+        Only a width if 2 (16-bits) is likely to work with ffmpeg.
+        None will use whatever the text-to-speech system returns.
+        """
+        return None
+
     async def async_intercept_wake_word(self) -> str | None:
         """Intercept the next wake word from the satellite.
 
@@ -105,7 +138,7 @@ class AssistSatelliteEntity(entity.Entity):
             pipeline_id = self._resolve_pipeline()
             pipeline = async_get_pipeline(self.hass, pipeline_id)
 
-            tts_options: dict[str, Any] = {}
+            tts_options: dict[str, Any] = self._get_tts_options()
             if pipeline.tts_voice is not None:
                 tts_options[tts.ATTR_VOICE] = pipeline.tts_voice
 
@@ -203,6 +236,9 @@ class AssistSatelliteEntity(entity.Entity):
         if self._conversation_id is None:
             self._conversation_id = ulid.ulid()
 
+        # Preferred text-to-speech audio format
+        tts_options: dict[str, Any] = self._get_tts_options()
+
         # Update timeout
         self._conversation_id_time = time.monotonic()
 
@@ -225,7 +261,7 @@ class AssistSatelliteEntity(entity.Entity):
             pipeline_id=self._resolve_pipeline(),
             conversation_id=self._conversation_id,
             device_id=device_id,
-            tts_audio_output="wav",
+            tts_audio_output=tts_options,
             wake_word_phrase=wake_word_phrase,
             audio_settings=AudioSettings(
                 silence_seconds=self._resolve_vad_sensitivity()
@@ -233,6 +269,24 @@ class AssistSatelliteEntity(entity.Entity):
             start_stage=start_stage,
             end_stage=end_stage,
         )
+
+    def _get_tts_options(self) -> dict[str, Any]:
+        """Get TTS options with preferred audio format."""
+        tts_options: dict[str, Any] = {}
+
+        if self.tts_format is not None:
+            tts_options[tts.ATTR_PREFERRED_FORMAT] = self.tts_format
+
+        if self.tts_sample_rate is not None:
+            tts_options[tts.ATTR_PREFERRED_SAMPLE_RATE] = self.tts_sample_rate
+
+        if self.tts_sample_channels is not None:
+            tts_options[tts.ATTR_PREFERRED_SAMPLE_CHANNELS] = self.tts_sample_channels
+
+        if self.tts_sample_bytes is not None:
+            tts_options[tts.ATTR_PREFERRED_SAMPLE_BYTES] = self.tts_sample_bytes
+
+        return tts_options
 
     @abstractmethod
     def on_pipeline_event(self, event: PipelineEvent) -> None:

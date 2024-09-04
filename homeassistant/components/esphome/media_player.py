@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from functools import partial
-from typing import Any
+from typing import Any, cast
 
 from aioesphomeapi import (
     EntityInfo,
@@ -11,6 +11,7 @@ from aioesphomeapi import (
     MediaPlayerEntityState,
     MediaPlayerInfo,
     MediaPlayerState as EspMediaPlayerState,
+    MediaPlayerSupportedFormat,
 )
 
 from homeassistant.components import media_source
@@ -66,24 +67,25 @@ class EsphomeMediaPlayer(
         if self._static_info.supports_pause:
             flags |= MediaPlayerEntityFeature.PAUSE | MediaPlayerEntityFeature.PLAY
         self._attr_supported_features = flags
+        self._entry_data.media_player_formats[self.entity_id] = self.supported_formats
 
     @property
     @esphome_state_property
     def state(self) -> MediaPlayerState | None:
         """Return current state."""
-        return _STATES.from_esphome(self._state.state)
+        return _STATES.from_esphome(self._state.state)  # type: ignore[no-any-return]
 
     @property
     @esphome_state_property
     def is_volume_muted(self) -> bool:
         """Return true if volume is muted."""
-        return self._state.muted
+        return self._state.muted  # type: ignore[no-any-return]
 
     @property
     @esphome_float_state_property
     def volume_level(self) -> float | None:
         """Volume level of the media player (0..1)."""
-        return self._state.volume
+        return self._state.volume  # type: ignore[no-any-return]
 
     @convert_api_error_ha_error
     async def async_play_media(
@@ -141,6 +143,13 @@ class EsphomeMediaPlayer(
         self._client.media_player_command(
             self._key,
             command=MediaPlayerCommand.MUTE if mute else MediaPlayerCommand.UNMUTE,
+        )
+
+    @property
+    def supported_formats(self) -> list[MediaPlayerSupportedFormat]:
+        """Return list of supported formats."""
+        return cast(
+            list[MediaPlayerSupportedFormat], self._static_info.supported_formats
         )
 
 

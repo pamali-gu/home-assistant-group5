@@ -12,6 +12,7 @@ from typing import Any, cast
 import wave
 
 from aioesphomeapi import (
+    MediaPlayerFormatPurpose,
     VoiceAssistantAudioSettings,
     VoiceAssistantCommandFlag,
     VoiceAssistantEventType,
@@ -19,7 +20,7 @@ from aioesphomeapi import (
     VoiceAssistantTimerEventType,
 )
 
-from homeassistant.components import assist_satellite, tts
+from homeassistant.components import assist_satellite, media_player, tts
 from homeassistant.components.assist_pipeline import (
     PipelineEvent,
     PipelineEventType,
@@ -122,6 +123,11 @@ class EsphomeAssistSatellite(
         self._tts_streaming_task: asyncio.Task | None = None
         self._udp_server: VoiceAssistantUDPServer | None = None
 
+        self._tts_format: str | None = None
+        self._tts_sample_rate: int | None = None
+        self._tts_sample_channels: int | None = None
+        self._tts_sample_bytes: int | None = None
+
     @property
     def pipeline_entity_id(self) -> str | None:
         """Return the entity ID of the pipeline to use for the next conversation."""
@@ -144,11 +150,36 @@ class EsphomeAssistSatellite(
             f"{self.entry_data.device_info.mac_address}-vad_sensitivity",
         )
 
+    @property
+    def tts_format(self) -> str | None:
+        """Preferred media format for text-to-speech."""
+        return self._tts_format
+
+    @property
+    def tts_sample_rate(self) -> int | None:
+        """Preferred sample rate for text-to-speech."""
+        return self._tts_sample_rate
+
+    @property
+    def tts_sample_channels(self) -> int | None:
+        """Preferred number of audio channels for text-to-speech."""
+        return self._tts_sample_channels
+
+    @property
+    def tts_sample_bytes(self) -> int | None:
+        """Preferred width of audio samples for text-to-speech."""
+        return self._tts_sample_bytes
+
     async def async_added_to_hass(self) -> None:
         """Run when entity about to be added to hass."""
         await super().async_added_to_hass()
 
-        assert self.entry_data.device_info is not None
+        assert (
+            (self.entry_data.device_info is not None)
+            and (self.registry_entry is not None)
+            and (self.registry_entry.device_id is not None)
+        )
+
         feature_flags = (
             self.entry_data.device_info.voice_assistant_feature_flags_compat(
                 self.entry_data.api_version
@@ -174,9 +205,6 @@ class EsphomeAssistSatellite(
 
         if feature_flags & VoiceAssistantFeature.TIMERS:
             # Device supports timers
-            assert (self.registry_entry is not None) and (
-                self.registry_entry.device_id is not None
-            )
             self.entry_data.disconnect_callbacks.add(
                 async_register_timer_handler(
                     self.hass, self.registry_entry.device_id, self.handle_timer_event
@@ -228,6 +256,7 @@ class EsphomeAssistSatellite(
                     )
                 )
                 if feature_flags & VoiceAssistantFeature.SPEAKER:
+                    # Stream WAV audio
                     media_id = tts_output["media_id"]
                     self._tts_streaming_task = (
                         self.config_entry.async_create_background_task(
@@ -278,9 +307,7 @@ class EsphomeAssistSatellite(
                 self.entry_data.api_version
             )
         )
-        if (feature_flags & VoiceAssistantFeature.SPEAKER) and not (
-            feature_flags & VoiceAssistantFeature.API_AUDIO
-        ):
+        if not (feature_flags & VoiceAssistantFeature.API_AUDIO):
             port = await self._start_udp_server()
             _LOGGER.debug("Started UDP server on port %s", port)
 
@@ -291,6 +318,15 @@ class EsphomeAssistSatellite(
             start_stage = PipelineStage.STT
 
         end_stage = PipelineStage.TTS
+
+        if feature_flags & VoiceAssistantFeature.SPEAKER:
+            # Streamed WAV audio
+            self._tts_format = "wav"
+            self._tts_sample_rate = 16000
+            self._tts_sample_channels = 1
+        else:
+            # Media player
+            self._update_tts_format()
 
         # Run the pipeline
         _LOGGER.debug("Running pipeline from %s to %s", start_stage, end_stage)
@@ -343,6 +379,27 @@ class EsphomeAssistSatellite(
             timer_info.seconds_left,
             timer_info.is_active,
         )
+
+    def _update_tts_format(self) -> None:
+        """Update the TTS format from the first media player."""
+        assert (self.registry_entry is not None) and (
+            self.registry_entry.device_id is not None
+        )
+        ent_reg = er.async_get(self.hass)
+        entries = er.async_entries_for_device(ent_reg, self.registry_entry.device_id)
+        if media_player_id := next(
+            (e.entity_id for e in entries if e.domain == media_player.DOMAIN), None
+        ):
+            for supported_format in self.entry_data.media_player_formats[
+                media_player_id
+            ]:
+                if supported_format.purpose == MediaPlayerFormatPurpose.ANNOUNCEMENT:
+                    self._tts_format = supported_format.format
+                    self._tts_sample_rate = supported_format.sample_rate
+                    self._tts_sample_channels = supported_format.num_channels
+                    self._tts_sample_bytes = 2
+                    _LOGGER.debug("Preferred TTS format: %s", supported_format)
+                    break
 
     async def _stream_tts_audio(
         self,
