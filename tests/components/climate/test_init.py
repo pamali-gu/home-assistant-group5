@@ -109,6 +109,9 @@ class MockClimateEntity(MockEntity, ClimateEntity):
     _attr_swing_mode = "auto"
     _attr_swing_modes = ["auto", "off"]
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
+    _attr_target_temperature = 20
+    _attr_target_temperature_high = 25
+    _attr_target_temperature_low = 15
 
     @property
     def hvac_mode(self) -> HVACMode:
@@ -137,6 +140,14 @@ class MockClimateEntity(MockEntity, ClimateEntity):
     def set_swing_mode(self, swing_mode: str) -> None:
         """Set swing mode."""
         self._attr_swing_mode = swing_mode
+
+    def set_temperature(self, **kwargs: Any) -> None:
+        """Set new target temperature."""
+        if ATTR_TEMPERATURE in kwargs:
+            self._attr_target_temperature = kwargs[ATTR_TEMPERATURE]
+        if ATTR_TARGET_TEMP_HIGH in kwargs:
+            self._attr_target_temperature_high = kwargs[ATTR_TARGET_TEMP_HIGH]
+            self._attr_target_temperature_low = kwargs[ATTR_TARGET_TEMP_LOW]
 
 
 class MockClimateEntityTestMethods(MockClimateEntity):
@@ -238,7 +249,9 @@ def test_deprecated_current_constants(
 
 
 async def test_temperature_features_is_valid(
-    hass: HomeAssistant, register_test_integration: MockConfigEntry
+    hass: HomeAssistant,
+    register_test_integration: MockConfigEntry,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Test correct features for setting temperature."""
 
@@ -270,44 +283,34 @@ async def test_temperature_features_is_valid(
     await hass.config_entries.async_setup(register_test_integration.entry_id)
     await hass.async_block_till_done()
 
-    with pytest.raises(
-        ServiceValidationError,
-        match="The entity does not support to set target temperature, only to set a range",
-    ) as exc:
-        await hass.services.async_call(
-            DOMAIN,
-            SERVICE_SET_TEMPERATURE,
-            {
-                "entity_id": "climate.test_temp",
-                "temperature": 20,
-            },
-            blocking=True,
-        )
-    assert (
-        str(exc.value)
-        == "The entity does not support to set target temperature, only to set a range"
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_SET_TEMPERATURE,
+        {
+            "entity_id": "climate.test_temp",
+            "temperature": 20,
+        },
+        blocking=True,
     )
-    assert exc.value.translation_key == "not_supported_temp_feature"
+    assert (
+        "MockClimateTempEntity set_temperature action was used with temperature but the entity does not "
+        "implement the ClimateEntityFeature.TARGET_TEMPERATURE feature. Please"
+    ) in caplog.text
 
-    with pytest.raises(
-        ServiceValidationError,
-        match="The entity does not support to set target temperature range, only to set a single temperature",
-    ) as exc:
-        await hass.services.async_call(
-            DOMAIN,
-            SERVICE_SET_TEMPERATURE,
-            {
-                "entity_id": "climate.test_range",
-                "target_temp_low": 20,
-                "target_temp_high": 25,
-            },
-            blocking=True,
-        )
-    assert (
-        str(exc.value)
-        == "The entity does not support to set target temperature range, only to set a single temperature"
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_SET_TEMPERATURE,
+        {
+            "entity_id": "climate.test_range",
+            "target_temp_low": 20,
+            "target_temp_high": 25,
+        },
+        blocking=True,
     )
-    assert exc.value.translation_key == "not_supported_temp_range_feature"
+    assert (
+        "MockClimateTempRangeEntity set_temperature action was used with target_temp_low but the entity does not "
+        "implement the ClimateEntityFeature.TARGET_TEMPERATURE_RANGE feature. Please"
+    ) in caplog.text
 
 
 async def test_preset_mode_validation(
