@@ -121,7 +121,6 @@ class EsphomeAssistSatellite(
         self._audio_queue: asyncio.Queue[bytes | None] = asyncio.Queue()
         self._tts_streaming_task: asyncio.Task | None = None
         self._udp_server: VoiceAssistantUDPServer | None = None
-        self._announcement_finished: asyncio.Event | None = None
 
     @property
     def pipeline_entity_id(self) -> str | None:
@@ -162,7 +161,6 @@ class EsphomeAssistSatellite(
                     handle_start=self.handle_pipeline_start,
                     handle_stop=self.handle_pipeline_stop,
                     handle_audio=self.handle_audio,
-                    handle_announce_finished=self.handle_announce_finished,
                 )
             )
         else:
@@ -171,7 +169,6 @@ class EsphomeAssistSatellite(
                 self.cli.subscribe_voice_assistant(
                     handle_start=self.handle_pipeline_start,
                     handle_stop=self.handle_pipeline_stop,
-                    handle_announce_finished=self.handle_announce_finished,
                 )
             )
 
@@ -267,18 +264,12 @@ class EsphomeAssistSatellite(
 
         Should block until the announcement is done playing.
         """
-        if self._announcement_finished:
-            self._announcement_finished.set()
-
-        self.cli.send_voice_assistant_announce(media_id, message)
         _LOGGER.debug(
             "Waiting for announcement to finished (message=%s, media_id=%s)",
             message,
             media_id,
         )
-
-        self._announcement_finished = asyncio.Event()
-        await self._announcement_finished.wait()
+        await self.cli.wait_voice_assistant_announce(media_id, message)
 
     async def handle_pipeline_start(
         self,
@@ -370,13 +361,6 @@ class EsphomeAssistSatellite(
             timer_info.seconds_left,
             timer_info.is_active,
         )
-
-    async def handle_announce_finished(self, media_id: str) -> None:
-        """Handle when announcement is finished on satellite."""
-        if self._announcement_finished:
-            _LOGGER.debug("Announcement finished: %s", media_id)
-            self._announcement_finished.set()
-            self._announcement_finished = None
 
     async def _stream_tts_audio(
         self,

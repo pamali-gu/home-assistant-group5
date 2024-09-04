@@ -12,7 +12,6 @@ from aioesphomeapi import (
     EntityInfo,
     EntityState,
     UserService,
-    VoiceAssistantAnnounceFinished,
     VoiceAssistantAudioSettings,
     VoiceAssistantCommandFlag,
     VoiceAssistantEventType,
@@ -877,16 +876,13 @@ async def test_announce_message(
     satellite = get_satellite_entity(hass, mock_device.device_info.mac_address)
     assert satellite is not None
 
-    def send_voice_assistant_announce(media_id: str, text: str):
+    done = asyncio.Event()
+
+    async def wait_voice_assistant_announce(media_id: str, text: str):
         assert media_id == "https://www.home-assistant.io/resolved.mp3"
         assert text == "test-text"
 
-        # Announcement is finished
-        hass.async_add_job(
-            mock_device.mock_voice_assistant_handle_announce_finished(
-                VoiceAssistantAnnounceFinished(media_id)
-            )
-        )
+        done.set()
 
     with (
         patch(
@@ -902,8 +898,8 @@ async def test_announce_message(
         ),
         patch.object(
             mock_client,
-            "send_voice_assistant_announce",
-            new=send_voice_assistant_announce,
+            "wait_voice_assistant_announce",
+            new=wait_voice_assistant_announce,
         ),
     ):
         async with asyncio.timeout(1):
@@ -913,6 +909,7 @@ async def test_announce_message(
                 {"entity_id": satellite.entity_id, "message": "test-text"},
                 blocking=True,
             )
+            await done.wait()
 
 
 async def test_announce_media_id(
@@ -941,21 +938,18 @@ async def test_announce_media_id(
     satellite = get_satellite_entity(hass, mock_device.device_info.mac_address)
     assert satellite is not None
 
-    def send_voice_assistant_announce(media_id: str, text: str):
+    done = asyncio.Event()
+
+    async def wait_voice_assistant_announce(media_id: str, text: str):
         assert media_id == "https://www.home-assistant.io/resolved.mp3"
 
-        # Announcement is finished
-        hass.async_add_job(
-            mock_device.mock_voice_assistant_handle_announce_finished(
-                VoiceAssistantAnnounceFinished(media_id)
-            )
-        )
+        done.set()
 
     with (
         patch.object(
             mock_client,
-            "send_voice_assistant_announce",
-            new=send_voice_assistant_announce,
+            "wait_voice_assistant_announce",
+            new=wait_voice_assistant_announce,
         ),
     ):
         async with asyncio.timeout(1):
@@ -968,3 +962,4 @@ async def test_announce_media_id(
                 },
                 blocking=True,
             )
+            await done.wait()

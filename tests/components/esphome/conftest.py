@@ -19,7 +19,6 @@ from aioesphomeapi import (
     HomeassistantServiceCall,
     ReconnectLogic,
     UserService,
-    VoiceAssistantAnnounceFinished,
     VoiceAssistantAudioSettings,
     VoiceAssistantFeature,
 )
@@ -215,13 +214,6 @@ class MockESPHomeDevice:
             ]
             | None
         )
-        self.voice_assistant_handle_announce_finished_callback: (
-            Callable[
-                [VoiceAssistantAnnounceFinished],
-                Coroutine[Any, Any, None],
-            ]
-            | None
-        )
         self.device_info = device_info
 
     def set_state_callback(self, state_callback: Callable[[EntityState], None]) -> None:
@@ -303,21 +295,11 @@ class MockESPHomeDevice:
             ]
             | None
         ) = None,
-        handle_announce_finished: (
-            Callable[
-                [VoiceAssistantAnnounceFinished],
-                Coroutine[Any, Any, None],
-            ]
-            | None
-        ) = None,
     ) -> None:
         """Set the voice assistant subscription callbacks."""
         self.voice_assistant_handle_start_callback = handle_start
         self.voice_assistant_handle_stop_callback = handle_stop
         self.voice_assistant_handle_audio_callback = handle_audio
-        self.voice_assistant_handle_announce_finished_callback = (
-            handle_announce_finished
-        )
 
     async def mock_voice_assistant_handle_start(
         self,
@@ -339,13 +321,6 @@ class MockESPHomeDevice:
         """Mock voice assistant handle audio."""
         assert self.voice_assistant_handle_audio_callback is not None
         await self.voice_assistant_handle_audio_callback(audio)
-
-    async def mock_voice_assistant_handle_announce_finished(
-        self, announce_finished: VoiceAssistantAnnounceFinished
-    ) -> None:
-        """Mock voice assistant handle announce finished."""
-        assert self.voice_assistant_handle_announce_finished_callback is not None
-        await self.voice_assistant_handle_announce_finished_callback(announce_finished)
 
 
 async def _mock_generic_device_entry(
@@ -427,17 +402,10 @@ async def _mock_generic_device_entry(
             ]
             | None
         ) = None,
-        handle_announce_finished: (
-            Callable[
-                [VoiceAssistantAnnounceFinished],
-                Coroutine[Any, Any, None],
-            ]
-            | None
-        ) = None,
     ) -> Callable[[], None]:
         """Subscribe to voice assistant."""
         mock_device.set_subscribe_voice_assistant_callbacks(
-            handle_start, handle_stop, handle_audio, handle_announce_finished
+            handle_start, handle_stop, handle_audio
         )
 
         def unsub():
