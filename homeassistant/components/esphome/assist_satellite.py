@@ -271,7 +271,6 @@ class EsphomeAssistSatellite(
         )
         await self.cli.wait_voice_assistant_announce(media_id, message)
 
-
     async def handle_pipeline_start(
         self,
         conversation_id: str,

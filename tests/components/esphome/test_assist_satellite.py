@@ -823,7 +823,7 @@ async def test_streaming_tts_errors(
             {},
         )
 
-        
+
 async def test_announce_supported_features(
     hass: HomeAssistant,
     mock_client: APIClient,
