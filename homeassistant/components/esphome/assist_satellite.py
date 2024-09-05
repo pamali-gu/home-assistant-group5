@@ -6,6 +6,7 @@ import asyncio
 from collections.abc import AsyncIterable
 from functools import partial
 import io
+from itertools import chain
 import logging
 import socket
 from typing import Any, cast
@@ -360,7 +361,7 @@ class EsphomeAssistSatellite(
 
     def _update_tts_format(self) -> None:
         """Update the TTS format from the first media player."""
-        for supported_format in self.entry_data.media_player_formats.values():
+        for supported_format in chain(*self.entry_data.media_player_formats.values()):
             # Find first announcement format
             if supported_format.purpose == MediaPlayerFormatPurpose.ANNOUNCEMENT:
                 self._attr_tts_options = {
