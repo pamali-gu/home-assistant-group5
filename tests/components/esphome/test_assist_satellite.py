@@ -878,7 +878,9 @@ async def test_announce_message(
 
     done = asyncio.Event()
 
-    async def wait_voice_assistant_announce(media_id: str, text: str):
+    async def send_voice_assistant_announcement_await_response(
+        media_id: str, timeout: float, text: str
+    ):
         assert media_id == "https://www.home-assistant.io/resolved.mp3"
         assert text == "test-text"
 
@@ -898,8 +900,8 @@ async def test_announce_message(
         ),
         patch.object(
             mock_client,
-            "wait_voice_assistant_announce",
-            new=wait_voice_assistant_announce,
+            "send_voice_assistant_announcement_await_response",
+            new=send_voice_assistant_announcement_await_response,
         ),
     ):
         async with asyncio.timeout(1):
@@ -940,7 +942,9 @@ async def test_announce_media_id(
 
     done = asyncio.Event()
 
-    async def wait_voice_assistant_announce(media_id: str, text: str):
+    async def send_voice_assistant_announcement_await_response(
+        media_id: str, timeout: float, text: str
+    ):
         assert media_id == "https://www.home-assistant.io/resolved.mp3"
 
         done.set()
@@ -948,8 +952,8 @@ async def test_announce_media_id(
     with (
         patch.object(
             mock_client,
-            "wait_voice_assistant_announce",
-            new=wait_voice_assistant_announce,
+            "send_voice_assistant_announcement_await_response",
+            new=send_voice_assistant_announcement_await_response,
         ),
     ):
         async with asyncio.timeout(1):

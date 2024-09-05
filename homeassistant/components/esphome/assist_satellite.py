@@ -72,6 +72,8 @@ _TIMER_EVENT_TYPES: EsphomeEnumMapper[VoiceAssistantTimerEventType, TimerEventTy
     )
 )
 
+_ANNOUNCEMENT_TIMEOUT_SEC = 5 * 60  # 5 minutes
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -269,7 +271,9 @@ class EsphomeAssistSatellite(
             message,
             media_id,
         )
-        await self.cli.wait_voice_assistant_announce(media_id, message)
+        await self.cli.send_voice_assistant_announcement_await_response(
+            media_id, _ANNOUNCEMENT_TIMEOUT_SEC, message
+        )
 
     async def handle_pipeline_start(
         self,
