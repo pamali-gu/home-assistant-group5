@@ -48,6 +48,7 @@ class AssistSatelliteEntity(entity.Entity):
     _attr_state: AssistSatelliteState | None = None
     _attr_pipeline_entity_id: str | None = None
     _attr_vad_sensitivity_entity_id: str | None = None
+    _attr_tts_options: dict[str, Any] | None = None
 
     _conversation_id: str | None = None
     _conversation_id_time: float | None = None
@@ -69,7 +70,7 @@ class AssistSatelliteEntity(entity.Entity):
     @property
     def tts_options(self) -> dict[str, Any] | None:
         """Options passed for text-to-speech."""
-        return None
+        return self._attr_tts_options
 
     async def async_intercept_wake_word(self) -> str | None:
         """Intercept the next wake word from the satellite.

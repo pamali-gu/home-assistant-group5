@@ -123,8 +123,6 @@ class EsphomeAssistSatellite(
         self._tts_streaming_task: asyncio.Task | None = None
         self._udp_server: VoiceAssistantUDPServer | None = None
 
-        self._tts_options: dict[str, Any] | None = None
-
     @property
     def pipeline_entity_id(self) -> str | None:
         """Return the entity ID of the pipeline to use for the next conversation."""
@@ -146,11 +144,6 @@ class EsphomeAssistSatellite(
             DOMAIN,
             f"{self.entry_data.device_info.mac_address}-vad_sensitivity",
         )
-
-    @property
-    def tts_options(self) -> dict[str, Any] | None:
-        """Options passed for text-to-speech."""
-        return self._tts_options
 
     async def async_added_to_hass(self) -> None:
         """Run when entity about to be added to hass."""
@@ -303,7 +296,7 @@ class EsphomeAssistSatellite(
 
         if feature_flags & VoiceAssistantFeature.SPEAKER:
             # Streamed WAV audio
-            self._tts_options = {
+            self._attr_tts_options = {
                 tts.ATTR_PREFERRED_FORMAT: "wav",
                 tts.ATTR_PREFERRED_SAMPLE_RATE: 16000,
                 tts.ATTR_PREFERRED_SAMPLE_CHANNELS: 1,
@@ -370,7 +363,7 @@ class EsphomeAssistSatellite(
         for supported_format in self.entry_data.media_player_formats.values():
             # Find first announcement format
             if supported_format.purpose == MediaPlayerFormatPurpose.ANNOUNCEMENT:
-                self._tts_options = {
+                self._attr_tts_options = {
                     tts.ATTR_PREFERRED_FORMAT: supported_format.format,
                     tts.ATTR_PREFERRED_SAMPLE_RATE: supported_format.sample_rate,
                     tts.ATTR_PREFERRED_SAMPLE_CHANNELS: supported_format.num_channels,
