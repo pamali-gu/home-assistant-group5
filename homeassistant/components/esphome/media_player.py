@@ -11,7 +11,6 @@ from aioesphomeapi import (
     MediaPlayerEntityState,
     MediaPlayerInfo,
     MediaPlayerState as EspMediaPlayerState,
-    MediaPlayerSupportedFormat,
 )
 
 from homeassistant.components import media_source
@@ -67,25 +66,27 @@ class EsphomeMediaPlayer(
         if self._static_info.supports_pause:
             flags |= MediaPlayerEntityFeature.PAUSE | MediaPlayerEntityFeature.PLAY
         self._attr_supported_features = flags
-        self._entry_data.media_player_formats[self.entity_id] = self.supported_formats
+        self._entry_data.media_player_formats[self.entity_id] = cast(
+            MediaPlayerInfo, static_info
+        ).supported_formats
 
     @property
     @esphome_state_property
     def state(self) -> MediaPlayerState | None:
         """Return current state."""
-        return _STATES.from_esphome(self._state.state)  # type: ignore[no-any-return]
+        return _STATES.from_esphome(self._state.state)
 
     @property
     @esphome_state_property
     def is_volume_muted(self) -> bool:
         """Return true if volume is muted."""
-        return self._state.muted  # type: ignore[no-any-return]
+        return self._state.muted
 
     @property
     @esphome_float_state_property
     def volume_level(self) -> float | None:
         """Volume level of the media player (0..1)."""
-        return self._state.volume  # type: ignore[no-any-return]
+        return self._state.volume
 
     @convert_api_error_ha_error
     async def async_play_media(
@@ -104,6 +105,11 @@ class EsphomeMediaPlayer(
         self._client.media_player_command(
             self._key, media_url=media_id, announcement=announcement
         )
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Handle entity being removed."""
+        await super().async_will_remove_from_hass()
+        self._entry_data.media_player_formats.pop(self.entity_id, None)
 
     async def async_browse_media(
         self,
@@ -143,13 +149,6 @@ class EsphomeMediaPlayer(
         self._client.media_player_command(
             self._key,
             command=MediaPlayerCommand.MUTE if mute else MediaPlayerCommand.UNMUTE,
-        )
-
-    @property
-    def supported_formats(self) -> list[MediaPlayerSupportedFormat]:
-        """Return list of supported formats."""
-        return cast(
-            list[MediaPlayerSupportedFormat], self._static_info.supported_formats
         )
 
 
