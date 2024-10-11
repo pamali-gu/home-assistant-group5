@@ -24,7 +24,11 @@ from wyoming.vad import VoiceStarted, VoiceStopped
 from wyoming.wake import Detect, Detection
 
 from homeassistant.components import assist_pipeline, intent, stt, tts
-from homeassistant.components.assist_pipeline import select as pipeline_select
+from homeassistant.components.assist_pipeline import (
+    PipelineConfig,
+    WakeWordConfig,
+    select as pipeline_select,
+)
 from homeassistant.components.assist_pipeline.vad import VadSensitivity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import Context, HomeAssistant, callback
@@ -382,6 +386,25 @@ class WyomingSatellite:
         if self._conversation_id is None:
             self._conversation_id = str(uuid4())
 
+        wake_word_config = WakeWordConfig(
+            wake_word_phrase=wake_word_phrase,
+        )
+
+        pipeline_config = PipelineConfig(
+            pipeline_id=pipeline_id,
+            conversation_id=self._conversation_id,
+            tts_audio_output="wav",
+            audio_settings=assist_pipeline.AudioSettings(
+                noise_suppression_level=self.device.noise_suppression_level,
+                auto_gain_dbfs=self.device.auto_gain,
+                volume_multiplier=self.device.volume_multiplier,
+                silence_seconds=VadSensitivity.to_seconds(self.device.vad_sensitivity),
+            ),
+            device_id=self.device.device_id,
+            start_stage=start_stage,
+            end_stage=end_stage,
+        )
+
         # Update timeout
         self._conversation_id_time = time.monotonic()
 
@@ -402,21 +425,8 @@ class WyomingSatellite:
                     channel=stt.AudioChannels.CHANNEL_MONO,
                 ),
                 stt_stream=stt_stream,
-                start_stage=start_stage,
-                end_stage=end_stage,
-                tts_audio_output="wav",
-                pipeline_id=pipeline_id,
-                audio_settings=assist_pipeline.AudioSettings(
-                    noise_suppression_level=self.device.noise_suppression_level,
-                    auto_gain_dbfs=self.device.auto_gain,
-                    volume_multiplier=self.device.volume_multiplier,
-                    silence_seconds=VadSensitivity.to_seconds(
-                        self.device.vad_sensitivity
-                    ),
-                ),
-                device_id=self.device.device_id,
-                wake_word_phrase=wake_word_phrase,
-                conversation_id=self._conversation_id,
+                wake_word_config=wake_word_config,
+                pipeline_config=pipeline_config,
             ),
             name="wyoming satellite pipeline",
         )
