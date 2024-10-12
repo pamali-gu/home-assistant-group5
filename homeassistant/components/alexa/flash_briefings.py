@@ -53,6 +53,40 @@ class AlexaFlashBriefingView(http.HomeAssistantView):
         super().__init__()
         self.flash_briefings = flash_briefings
 
+    def _process_conf_title_not_none(self, item: dict, output: dict):
+        """
+        Process the output/response if its conf title is not None.
+        """
+        if isinstance(item.get(CONF_TITLE), template.Template):
+            output[ATTR_TITLE_TEXT] = item[CONF_TITLE].async_render(parse_result=False)
+        else:
+            output[ATTR_TITLE_TEXT] = item.get(CONF_TITLE)
+
+    def _process_conf_text_not_none(self, item: dict, output: dict):
+        """
+        Process the output/response if its conf text is not None.
+        """
+        if isinstance(item.get(CONF_TEXT), template.Template):
+            output[ATTR_MAIN_TEXT] = item[CONF_TEXT].async_render(parse_result=False)
+        else:
+            output[ATTR_MAIN_TEXT] = item.get(CONF_TEXT)
+
+    def _process_conf_audio_not_none(self, item: dict, output: dict):
+        """Process the output/response if its conf audio is not None."""
+        if isinstance(item.get(CONF_AUDIO), template.Template):
+            output[ATTR_STREAM_URL] = item[CONF_AUDIO].async_render(parse_result=False)
+        else:
+            output[ATTR_STREAM_URL] = item.get(CONF_AUDIO)
+
+    def _process_conf_display_url_not_none(self, item: dict, output: dict):
+        """Process the output/response if its conf display url is not None."""
+        if isinstance(item.get(CONF_DISPLAY_URL), template.Template):
+            output[ATTR_REDIRECTION_URL] = item[CONF_DISPLAY_URL].async_render(
+                parse_result=False
+            )
+        else:
+            output[ATTR_REDIRECTION_URL] = item.get(CONF_DISPLAY_URL)
+
     @callback
     def get(
         self, request: http.HomeAssistantRequest, briefing_id: str
@@ -83,40 +117,20 @@ class AlexaFlashBriefingView(http.HomeAssistantView):
         for item in self.flash_briefings.get(briefing_id, []):
             output = {}
             if item.get(CONF_TITLE) is not None:
-                if isinstance(item.get(CONF_TITLE), template.Template):
-                    output[ATTR_TITLE_TEXT] = item[CONF_TITLE].async_render(
-                        parse_result=False
-                    )
-                else:
-                    output[ATTR_TITLE_TEXT] = item.get(CONF_TITLE)
+                self._process_conf_title_not_none(item, output)
 
             if item.get(CONF_TEXT) is not None:
-                if isinstance(item.get(CONF_TEXT), template.Template):
-                    output[ATTR_MAIN_TEXT] = item[CONF_TEXT].async_render(
-                        parse_result=False
-                    )
-                else:
-                    output[ATTR_MAIN_TEXT] = item.get(CONF_TEXT)
+                self._process_conf_text_not_none(item, output)
 
             if (uid := item.get(CONF_UID)) is None:
                 uid = str(uuid.uuid4())
             output[ATTR_UID] = uid
 
             if item.get(CONF_AUDIO) is not None:
-                if isinstance(item.get(CONF_AUDIO), template.Template):
-                    output[ATTR_STREAM_URL] = item[CONF_AUDIO].async_render(
-                        parse_result=False
-                    )
-                else:
-                    output[ATTR_STREAM_URL] = item.get(CONF_AUDIO)
+                self._process_conf_audio_not_none(item, output)
 
             if item.get(CONF_DISPLAY_URL) is not None:
-                if isinstance(item.get(CONF_DISPLAY_URL), template.Template):
-                    output[ATTR_REDIRECTION_URL] = item[CONF_DISPLAY_URL].async_render(
-                        parse_result=False
-                    )
-                else:
-                    output[ATTR_REDIRECTION_URL] = item.get(CONF_DISPLAY_URL)
+                self._process_conf_display_url_not_none(item, output)
 
             output[ATTR_UPDATE_DATE] = dt_util.utcnow().strftime(DATE_FORMAT)
 
