@@ -65,6 +65,8 @@ MEASURED_LABEL = "Measured"
 TIMEFRAME_LABEL = "Timeframe"
 SYMBOL = "symbol"
 
+WEATHER_POURING_ICON = "mdi:weather-pouring"
+
 # Schedule next call after (minutes):
 SCHEDULE_OK = 10
 # When an error occurred, new call after (minutes):
@@ -385,31 +387,31 @@ SENSOR_TYPES: tuple[SensorEntityDescription, ...] = (
         key="rainchance_1d",
         translation_key="rainchance_1d",
         native_unit_of_measurement=PERCENTAGE,
-        icon="mdi:weather-pouring",
+        icon=WEATHER_POURING_ICON,
     ),
     SensorEntityDescription(
         key="rainchance_2d",
         translation_key="rainchance_2d",
         native_unit_of_measurement=PERCENTAGE,
-        icon="mdi:weather-pouring",
+        icon=WEATHER_POURING_ICON,
     ),
     SensorEntityDescription(
         key="rainchance_3d",
         translation_key="rainchance_3d",
         native_unit_of_measurement=PERCENTAGE,
-        icon="mdi:weather-pouring",
+        icon=WEATHER_POURING_ICON,
     ),
     SensorEntityDescription(
         key="rainchance_4d",
         translation_key="rainchance_4d",
         native_unit_of_measurement=PERCENTAGE,
-        icon="mdi:weather-pouring",
+        icon=WEATHER_POURING_ICON,
     ),
     SensorEntityDescription(
         key="rainchance_5d",
         translation_key="rainchance_5d",
         native_unit_of_measurement=PERCENTAGE,
-        icon="mdi:weather-pouring",
+        icon=WEATHER_POURING_ICON,
     ),
     SensorEntityDescription(
         key="sunchance_1d",
