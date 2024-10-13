@@ -1773,47 +1773,8 @@ class AlexaRangeController(AlexaCapability):
         if self.entity.state in (STATE_UNAVAILABLE, STATE_UNKNOWN, None):
             return None
 
-        # Cover Position
-        if self.instance == f"{cover.DOMAIN}.{cover.ATTR_POSITION}":
-            return self.entity.attributes.get(cover.ATTR_CURRENT_POSITION)
-
-        # Cover Tilt
-        if self.instance == f"{cover.DOMAIN}.tilt":
-            return self.entity.attributes.get(cover.ATTR_CURRENT_TILT_POSITION)
-
-        # Fan speed percentage
-        if self.instance == f"{fan.DOMAIN}.{fan.ATTR_PERCENTAGE}":
-            supported = self.entity.attributes.get(ATTR_SUPPORTED_FEATURES, 0)
-            if supported and fan.FanEntityFeature.SET_SPEED:
-                return self.entity.attributes.get(fan.ATTR_PERCENTAGE)
-            return 100 if self.entity.state == fan.STATE_ON else 0
-
-        # Humidifier target humidity
-        if self.instance == f"{humidifier.DOMAIN}.{humidifier.ATTR_HUMIDITY}":
-            # If the humidifier is turned off the target humidity attribute is not set.
-            # We return 0 to make clear we do not know the current value.
-            return self.entity.attributes.get(humidifier.ATTR_HUMIDITY, 0)
-
-        # Input Number Value
-        if self.instance == f"{input_number.DOMAIN}.{input_number.ATTR_VALUE}":
-            return float(self.entity.state)
-
-        # Number Value
-        if self.instance == f"{number.DOMAIN}.{number.ATTR_VALUE}":
-            return float(self.entity.state)
-
-        # Vacuum Fan Speed
-        if self.instance == f"{vacuum.DOMAIN}.{vacuum.ATTR_FAN_SPEED}":
-            speed_list = self.entity.attributes.get(vacuum.ATTR_FAN_SPEED_LIST)
-            speed = self.entity.attributes.get(vacuum.ATTR_FAN_SPEED)
-            if speed_list is not None and speed is not None:
-                return next((i for i, v in enumerate(speed_list) if v == speed), None)
-
-        # Valve Position
-        if self.instance == f"{valve.DOMAIN}.{valve.ATTR_POSITION}":
-            return self.entity.attributes.get(valve.ATTR_CURRENT_POSITION)
-
-        return None
+        attribute = self._get_instance_attribute()
+        return self._fetch_attribute_value(attribute)
 
     def configuration(self) -> dict[str, Any] | None:
         """Return configuration with presetResources."""
@@ -2043,6 +2004,67 @@ class AlexaRangeController(AlexaCapability):
             return self._semantics.serialize_semantics()
 
         return None
+
+    def _get_fan_percentage(self) -> Any:
+        """Return fan percentage or default to 100/0 based on state."""
+        supported = self.entity.attributes.get(ATTR_SUPPORTED_FEATURES, 0)
+        if supported and fan.FanEntityFeature.SET_SPEED:
+            return self.entity.attributes.get(fan.ATTR_PERCENTAGE)
+        return 100 if self.entity.state == fan.STATE_ON else 0
+
+    def _get_vacuum_fan_speed(self) -> int | None:
+        """Return vacuum fan speed index based on speed list."""
+        speed_list = self.entity.attributes.get(vacuum.ATTR_FAN_SPEED_LIST)
+        speed = self.entity.attributes.get(vacuum.ATTR_FAN_SPEED)
+        if speed_list is not None and speed is not None:
+            return next((i for i, v in enumerate(speed_list) if v == speed), None)
+        return None
+
+    def _get_humidifier_target_humidity(self) -> Any:
+        """Return humidifier target humidity.
+
+        If the humidifier is turned off the target humidity attribute is not set.
+        We return 0 to make clear we do not know the current value.
+        """
+        return self.entity.attributes.get(humidifier.ATTR_HUMIDITY, 0)
+
+    def _fetch_state_value(self) -> Any:
+        """Return entity state for input_number and number domains."""
+        if self.instance in (
+            f"{input_number.DOMAIN}.{input_number.ATTR_VALUE}",
+            f"{number.DOMAIN}.{number.ATTR_VALUE}",
+        ):
+            return float(self.entity.state)
+        return None
+
+    def _get_instance_attribute(self) -> str | None:
+        """Map and return instance to corresponding attribute."""
+        instance_mapping_dict = {
+            f"{cover.DOMAIN}.{cover.ATTR_POSITION}": cover.ATTR_CURRENT_POSITION,
+            f"{cover.DOMAIN}.tilt": cover.ATTR_CURRENT_TILT_POSITION,
+            f"{fan.DOMAIN}.{fan.ATTR_PERCENTAGE}": fan.ATTR_PERCENTAGE,
+            f"{humidifier.DOMAIN}.{humidifier.ATTR_HUMIDITY}": humidifier.ATTR_HUMIDITY,
+            f"{input_number.DOMAIN}.{input_number.ATTR_VALUE}": None,
+            f"{number.DOMAIN}.{number.ATTR_VALUE}": None,
+            f"{vacuum.DOMAIN}.{vacuum.ATTR_FAN_SPEED}": vacuum.ATTR_FAN_SPEED,
+            f"{valve.DOMAIN}.{valve.ATTR_POSITION}": valve.ATTR_CURRENT_POSITION,
+        }
+        if self.instance:
+            return instance_mapping_dict.get(self.instance)
+        return None
+
+    def _fetch_attribute_value(self, attribute: str | None) -> Any:
+        """Return the appropriate attribute value based on instance."""
+        if not attribute:
+            return self._fetch_state_value()
+
+        if self.instance == f"{fan.DOMAIN}.{fan.ATTR_PERCENTAGE}":
+            return self._get_fan_percentage()
+        if self.instance == f"{vacuum.DOMAIN}.{vacuum.ATTR_FAN_SPEED}":
+            return self._get_vacuum_fan_speed()
+        if self.instance == f"{humidifier.DOMAIN}.{humidifier.ATTR_HUMIDITY}":
+            return self._get_humidifier_target_humidity()
+        return self.entity.attributes.get(attribute)
 
 
 class AlexaToggleController(AlexaCapability):
