@@ -1491,18 +1491,7 @@ class PipelineInput:
     async def validate(self) -> None:
         """Validate pipeline input against start stage."""
         if self.run.start_stage in (PipelineStage.WAKE_WORD, PipelineStage.STT):
-            if self.run.pipeline.stt_engine is None:
-                raise PipelineRunValidationError(
-                    "the pipeline does not support speech-to-text"
-                )
-            if self.stt_metadata is None:
-                raise PipelineRunValidationError(
-                    "stt_metadata is required for speech-to-text"
-                )
-            if self.stt_stream is None:
-                raise PipelineRunValidationError(
-                    "stt_stream is required for speech-to-text"
-                )
+            self._validate_stt_requirements()
         elif self.run.start_stage == PipelineStage.INTENT:
             if self.intent_input is None:
                 raise PipelineRunValidationError(
@@ -1522,6 +1511,27 @@ class PipelineInput:
         start_stage_index = PIPELINE_STAGE_ORDER.index(self.run.start_stage)
         end_stage_index = PIPELINE_STAGE_ORDER.index(self.run.end_stage)
 
+        await self._prepare_pipeline_tasks(start_stage_index, end_stage_index)
+
+    def _validate_stt_requirements(self) -> None:
+        """Check required attributes for Speech-to-Text stage."""
+        if self.run.pipeline.stt_engine is None:
+            raise PipelineRunValidationError(
+                "the pipeline does not support speech-to-text"
+            )
+        if self.stt_metadata is None:
+            raise PipelineRunValidationError(
+                "stt_metadata is required for speech-to-text"
+            )
+        if self.stt_stream is None:
+            raise PipelineRunValidationError(
+                "stt_stream is required for speech-to-text"
+            )
+
+    async def _prepare_pipeline_tasks(
+        self, start_stage_index: int, end_stage_index: int
+    ) -> None:
+        """Prepare pipeline tasks based on start and end stages."""
         prepare_tasks = []
 
         if (
