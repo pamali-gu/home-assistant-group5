@@ -395,44 +395,44 @@ def websocket_list_languages(
     This will return a list of languages which are supported by at least one stt, tts
     and conversation engine respectively.
     """
-    conv_language_tags = conversation.async_get_conversation_languages(hass)
-    stt_language_tags = stt.async_get_speech_to_text_languages(hass)
-    tts_language_tags = tts.async_get_text_to_speech_languages(hass)
-    pipeline_languages: set[str] | None = None
 
-    if conv_language_tags and conv_language_tags != MATCH_ALL:
-        languages = set()
-        for language_tag in conv_language_tags:
-            dialect = language_util.Dialect.parse(language_tag)
-            languages.add(dialect.language)
-        pipeline_languages = languages
+    def parse_language_tags(language_tags: list[str] | set[str]) -> set[str] | None:
+        """Parse and return a set of unique languages from the tags."""
+        if language_tags and language_tags != MATCH_ALL:
+            return {language_util.Dialect.parse(tag).language for tag in language_tags}
+        return None
 
-    if stt_language_tags:
-        languages = set()
-        for language_tag in stt_language_tags:
-            dialect = language_util.Dialect.parse(language_tag)
-            languages.add(dialect.language)
-        if pipeline_languages is not None:
-            pipeline_languages = language_util.intersect(pipeline_languages, languages)
-        else:
-            pipeline_languages = languages
+    # Get the supported languages for conversation, STT, and TTS
+    conversation_languages = parse_language_tags(
+        conversation.async_get_conversation_languages(hass)
+    )
+    stt_languages = parse_language_tags(stt.async_get_speech_to_text_languages(hass))
+    tts_languages = parse_language_tags(tts.async_get_text_to_speech_languages(hass))
 
-    if tts_language_tags:
-        languages = set()
-        for language_tag in tts_language_tags:
-            dialect = language_util.Dialect.parse(language_tag)
-            languages.add(dialect.language)
-        if pipeline_languages is not None:
-            pipeline_languages = language_util.intersect(pipeline_languages, languages)
-        else:
-            pipeline_languages = languages
+    # Determine the intersection of languages supported by all pipelines
+    pipeline_languages = conversation_languages
 
+    def update_pipeline_languages(
+        pipeline_languages: set[str] | None, lang_set: set[str]
+    ) -> set[str]:
+        """Update pipeline languages by setting or intersecting."""
+        return (
+            lang_set
+            if pipeline_languages is None
+            else language_util.intersect(pipeline_languages, lang_set)
+        )
+
+    for lang_set in (stt_languages, tts_languages):
+        if lang_set:
+            pipeline_languages = update_pipeline_languages(pipeline_languages, lang_set)
+
+    # Send the result back via WebSocket
     connection.send_result(
         msg["id"],
         {
-            "languages": (
-                sorted(pipeline_languages) if pipeline_languages else pipeline_languages
-            )
+            "languages": sorted(pipeline_languages)
+            if pipeline_languages
+            else pipeline_languages
         },
     )
 
