@@ -124,6 +124,26 @@ class VoiceCommandSegmenter:
         self._reset_seconds_left = self.reset_seconds
         self.in_command = False
 
+    def _process_not_in_command(
+        self, is_speech: bool | None, chunk_seconds: float
+    ) -> None:
+        """Process samples when not in a voice command."""
+        if is_speech:
+            self._reset_seconds_left = self.reset_seconds
+            self._speech_seconds_left -= chunk_seconds
+            if self._speech_seconds_left <= 0:
+                # Inside voice command
+                self.in_command = True
+                self._command_seconds_left = self.command_seconds - self.speech_seconds
+                self._silence_seconds_left = self.silence_seconds
+                _LOGGER.debug("Voice command started")
+        else:
+            # Reset if enough silence
+            self._reset_seconds_left -= chunk_seconds
+            if self._reset_seconds_left <= 0:
+                self._speech_seconds_left = self.speech_seconds
+                self._reset_seconds_left = self.reset_seconds
+
     def process(self, chunk_seconds: float, is_speech: bool | None) -> bool:
         """Process samples using external VAD.
 
@@ -143,23 +163,7 @@ class VoiceCommandSegmenter:
             return False
 
         if not self.in_command:
-            if is_speech:
-                self._reset_seconds_left = self.reset_seconds
-                self._speech_seconds_left -= chunk_seconds
-                if self._speech_seconds_left <= 0:
-                    # Inside voice command
-                    self.in_command = True
-                    self._command_seconds_left = (
-                        self.command_seconds - self.speech_seconds
-                    )
-                    self._silence_seconds_left = self.silence_seconds
-                    _LOGGER.debug("Voice command started")
-            else:
-                # Reset if enough silence
-                self._reset_seconds_left -= chunk_seconds
-                if self._reset_seconds_left <= 0:
-                    self._speech_seconds_left = self.speech_seconds
-                    self._reset_seconds_left = self.reset_seconds
+            self._process_not_in_command(is_speech, chunk_seconds)
         elif not is_speech:
             # Silence in command
             self._reset_seconds_left = self.reset_seconds
