@@ -75,6 +75,7 @@ SCHEDULE_NOK = 2
 
 STATIONNAME_LABEL = "Stationname"
 
+GAUGE_ICON = "mdi:gauge"
 MDI_COMPASS_OUTLINE_ICON = "mdi:compass-outline"
 
 SENSOR_TYPES: tuple[SensorEntityDescription, ...] = (
@@ -86,19 +87,19 @@ SENSOR_TYPES: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key="barometerfc",
         translation_key="barometerfc",
-        icon="mdi:gauge",
+        icon=GAUGE_ICON,
     ),
     # new in json api (>1.0.0):
     SensorEntityDescription(
         key="barometerfcname",
         translation_key="barometerfcname",
-        icon="mdi:gauge",
+        icon=GAUGE_ICON,
     ),
     # new in json api (>1.0.0):
     SensorEntityDescription(
         key="barometerfcnamenl",
         translation_key="barometerfcnamenl",
-        icon="mdi:gauge",
+        icon=GAUGE_ICON,
     ),
     SensorEntityDescription(
         key="condition",
@@ -180,7 +181,7 @@ SENSOR_TYPES: tuple[SensorEntityDescription, ...] = (
         key="pressure",
         device_class=SensorDeviceClass.PRESSURE,
         native_unit_of_measurement=UnitOfPressure.HPA,
-        icon="mdi:gauge",
+        icon=GAUGE_ICON,
         state_class=SensorStateClass.MEASUREMENT,
     ),
     SensorEntityDescription(
