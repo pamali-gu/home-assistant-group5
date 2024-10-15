@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import voluptuous as vol
@@ -93,6 +94,8 @@ CONFIG_SCHEMA = vol.Schema(
     extra=vol.ALLOW_EXTRA,
 )
 
+logger = logging.getLogger(__name__)
+
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Activate the Alexa component."""
@@ -110,6 +113,16 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     if CONF_SMART_HOME in config:
         smart_home_config: dict[str, Any] | None = config[CONF_SMART_HOME]
         smart_home_config = smart_home_config or SMART_HOME_SCHEMA({})
-        await smart_home.async_setup(hass, smart_home_config)
+        try:
+            await smart_home.async_setup(hass, smart_home_config)
+        except ValueError as e:  # Catch specific exceptions like ValueError
+            logger.error("Smart home setup failed due to invalid value: %s", e)
+            return False
+        except TypeError as e:
+            logger.error("Smart home setup failed due to type error: %s", e)
+            return False
+        except RuntimeError as e:
+            logger.error("Smart home setup encountered a runtime issue: %s", e)
+            return False
 
     return True
