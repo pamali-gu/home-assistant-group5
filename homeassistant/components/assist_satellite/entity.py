@@ -14,9 +14,11 @@ from homeassistant.components import media_source, stt, tts
 from homeassistant.components.assist_pipeline import (
     OPTION_PREFERRED,
     AudioSettings,
+    PipelineConfig,
     PipelineEvent,
     PipelineEventType,
     PipelineStage,
+    WakeWordConfig,
     async_get_pipeline,
     async_get_pipelines,
     async_pipeline_from_audio_stream,
@@ -308,6 +310,22 @@ class AssistSatelliteEntity(entity.Entity):
             self._conversation_id = None
             self._conversation_id_time = None
 
+        wake_word_config = WakeWordConfig(
+            wake_word_phrase=wake_word_phrase,
+        )
+
+        pipeline_config = PipelineConfig(
+            pipeline_id=self._resolve_pipeline(),
+            conversation_id=self._conversation_id,
+            tts_audio_output=self.tts_options,
+            audio_settings=AudioSettings(
+                silence_seconds=self._resolve_vad_sensitivity()
+            ),
+            device_id=device_id,
+            start_stage=start_stage,
+            end_stage=end_stage,
+        )
+
         # Set entity state based on pipeline events
         self._run_has_tts = False
 
@@ -327,16 +345,8 @@ class AssistSatelliteEntity(entity.Entity):
                     channel=stt.AudioChannels.CHANNEL_MONO,
                 ),
                 stt_stream=audio_stream,
-                pipeline_id=self._resolve_pipeline(),
-                conversation_id=self._conversation_id,
-                device_id=device_id,
-                tts_audio_output=self.tts_options,
-                wake_word_phrase=wake_word_phrase,
-                audio_settings=AudioSettings(
-                    silence_seconds=self._resolve_vad_sensitivity()
-                ),
-                start_stage=start_stage,
-                end_stage=end_stage,
+                wake_word_config=wake_word_config,
+                pipeline_config=pipeline_config,
             ),
             f"{self.entity_id}_pipeline",
         )
