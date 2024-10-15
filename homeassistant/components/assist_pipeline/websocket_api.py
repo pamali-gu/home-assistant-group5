@@ -256,8 +256,7 @@ async def websocket_run(
 
 
 async def _stt_stream(
-    incoming_sample_rate: int, 
-    audio_queue: asyncio.Queue[bytes]
+    incoming_sample_rate: int, audio_queue: asyncio.Queue[bytes]
 ) -> AsyncGenerator[bytes]:
     state = None
 
@@ -274,11 +273,12 @@ async def _stt_stream(
             )
         yield chunk
 
+
 async def _execute_pipeline_with_timeout(
-    run_task: asyncio.Task, 
-    pipeline_input: Any, 
-    timeout: float, 
-    unregister_handler: (Callable[[], None] | None)
+    run_task: asyncio.Task,
+    pipeline_input: Any,
+    timeout: float,
+    unregister_handler: (Callable[[], None] | None),
 ) -> None:
     try:
         async with asyncio.timeout(timeout):
