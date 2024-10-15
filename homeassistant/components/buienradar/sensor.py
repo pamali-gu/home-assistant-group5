@@ -883,23 +883,19 @@ class BrSensor(SensorEntity):
         if sensor_type == SYMBOL or sensor_type.startswith(CONDITION):
             return self._update_weather_symbol_and_status_text(data, sensor_type)
 
-        if sensor_type.startswith(PRECIPITATION_FORECAST):
+        nested = data.get(PRECIPITATION_FORECAST)
+        if sensor_type.startswith(PRECIPITATION_FORECAST) and nested is not None:
             # update nested precipitation forecast sensors
-            nested = data.get(PRECIPITATION_FORECAST)
-            if nested is not None:
-                self._timeframe = nested.get(TIMEFRAME)
-                self._attr_native_value = nested.get(
-                    sensor_type[len(PRECIPITATION_FORECAST) + 1 :]
-                )
+            self._timeframe = nested.get(TIMEFRAME)
+            self._attr_native_value = nested.get(
+                sensor_type[len(PRECIPITATION_FORECAST) + 1 :]
+            )
             return True
 
-        if sensor_type in [WINDSPEED, WINDGUST]:
+        sensor_value = data.get(sensor_type)
+        if sensor_type in [WINDSPEED, WINDGUST] and sensor_value is not None:
             # hass wants windspeeds in km/h not m/s, so convert:
-            sensor_value = data.get(sensor_type)
-            if sensor_value is not None:
-                self._attr_native_value = round(sensor_value * 3.6, 1)
-            else:
-                self._attr_native_value = None
+            self._attr_native_value = round(sensor_value * 3.6, 1)
             return True
 
         if sensor_type == VISIBILITY:
