@@ -68,6 +68,7 @@ SYMBOL = "symbol"
 
 WEATHER_WINDY_ICON = "mdi:weather-windy"
 WEATHER_POURING_ICON = "mdi:weather-pouring"
+WEATHER_PARTLY_CLOUDY_ICON = "mdi:weather-partly-cloudy"
 
 # Schedule next call after (minutes):
 SCHEDULE_OK = 10
@@ -78,6 +79,8 @@ STATIONNAME_LABEL = "Stationname"
 
 GAUGE_ICON = "mdi:gauge"
 MDI_COMPASS_OUTLINE_ICON = "mdi:compass-outline"
+
+NO_FORECAST_FCDAY_WARNING = "No forecast for fcday="
 
 SENSOR_TYPES: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
@@ -422,31 +425,31 @@ SENSOR_TYPES: tuple[SensorEntityDescription, ...] = (
         key="sunchance_1d",
         translation_key="sunchance_1d",
         native_unit_of_measurement=PERCENTAGE,
-        icon="mdi:weather-partly-cloudy",
+        icon=WEATHER_PARTLY_CLOUDY_ICON,
     ),
     SensorEntityDescription(
         key="sunchance_2d",
         translation_key="sunchance_2d",
         native_unit_of_measurement=PERCENTAGE,
-        icon="mdi:weather-partly-cloudy",
+        icon=WEATHER_PARTLY_CLOUDY_ICON,
     ),
     SensorEntityDescription(
         key="sunchance_3d",
         translation_key="sunchance_3d",
         native_unit_of_measurement=PERCENTAGE,
-        icon="mdi:weather-partly-cloudy",
+        icon=WEATHER_PARTLY_CLOUDY_ICON,
     ),
     SensorEntityDescription(
         key="sunchance_4d",
         translation_key="sunchance_4d",
         native_unit_of_measurement=PERCENTAGE,
-        icon="mdi:weather-partly-cloudy",
+        icon=WEATHER_PARTLY_CLOUDY_ICON,
     ),
     SensorEntityDescription(
         key="sunchance_5d",
         translation_key="sunchance_5d",
         native_unit_of_measurement=PERCENTAGE,
-        icon="mdi:weather-partly-cloudy",
+        icon=WEATHER_PARTLY_CLOUDY_ICON,
     ),
     SensorEntityDescription(
         key="windforce_1d",
@@ -765,7 +768,7 @@ class BrSensor(SensorEntity):
     @callback
     def data_updated(self, data: BrData):
         """Update data."""
-        if self._load_data(data.data) and self.hass:
+        if data.data is not None and self._load_data(data.data) and self.hass:
             self.async_write_ha_state()
 
     def _process_sensor_type_starts_with_windspeed(
@@ -774,9 +777,11 @@ class BrSensor(SensorEntity):
         """Process forecast data when sensor type starts with WINDSPEED."""
         # hass wants windspeeds in km/h not m/s, so convert:
         try:
-            self._attr_native_value = data.get(FORECAST)[fcday].get(sensor_type[:-3])
+            forecast_data = data.get(FORECAST)
+            if forecast_data is not None:
+                self._attr_native_value = forecast_data[fcday].get(sensor_type[:-3])
         except IndexError:
-            _LOGGER.warning("No forecast for fcday=%s", fcday)
+            _LOGGER.warning("%s %s", NO_FORECAST_FCDAY_WARNING, fcday)
             return False
 
         if self.state is not None:
@@ -822,7 +827,7 @@ class BrSensor(SensorEntity):
             try:
                 condition = data.get(FORECAST)[fcday].get(CONDITION)
             except IndexError:
-                _LOGGER.warning("No forecast for fcday=%s", fcday)
+                _LOGGER.warning("%s %s", NO_FORECAST_FCDAY_WARNING, fcday)
                 return False
 
             sensor_type_map = {
@@ -853,12 +858,12 @@ class BrSensor(SensorEntity):
         try:
             self._attr_native_value = data.get(FORECAST)[fcday].get(sensor_type[:-3])
         except IndexError:
-            _LOGGER.warning("No forecast for fcday=%s", fcday)
+            _LOGGER.warning("%s %s", NO_FORECAST_FCDAY_WARNING, fcday)
             return False
         return True
 
     @callback
-    def _load_data(self, data: dict[str, any]):  # noqa: C901
+    def _load_data(self, data: dict[str, Any]):  # noqa: C901
         """Load the sensor with relevant data."""
         # Find sensor
 
@@ -876,22 +881,25 @@ class BrSensor(SensorEntity):
             self._process_sensor_endswith(fcday_map, sensor_type, data)
 
         if sensor_type == SYMBOL or sensor_type.startswith(CONDITION):
-            return self.update_weather_symbol_and_status_text(data, sensor_type)
+            return self._update_weather_symbol_and_status_text(data, sensor_type)
 
         if sensor_type.startswith(PRECIPITATION_FORECAST):
             # update nested precipitation forecast sensors
             nested = data.get(PRECIPITATION_FORECAST)
-            self._timeframe = nested.get(TIMEFRAME)
-            self._attr_native_value = nested.get(
-                sensor_type[len(PRECIPITATION_FORECAST) + 1 :]
-            )
+            if nested is not None:
+                self._timeframe = nested.get(TIMEFRAME)
+                self._attr_native_value = nested.get(
+                    sensor_type[len(PRECIPITATION_FORECAST) + 1 :]
+                )
             return True
 
         if sensor_type in [WINDSPEED, WINDGUST]:
             # hass wants windspeeds in km/h not m/s, so convert:
-            self._attr_native_value = data.get(sensor_type)
-            if self.state is not None:
-                self._attr_native_value = round(data.get(sensor_type) * 3.6, 1)
+            sensor_value = data.get(sensor_type)
+            if sensor_value is not None:
+                self._attr_native_value = round(sensor_value * 3.6, 1)
+            else:
+                self._attr_native_value = None
             return True
 
         if sensor_type == VISIBILITY:
