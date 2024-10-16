@@ -156,32 +156,30 @@ async def websocket_run(
         # Audio pipeline that will receive audio as binary websocket messages
         msg_input = msg["input"]
         audio_queue: asyncio.Queue[bytes] = asyncio.Queue()
-        incoming_sample_rate = msg_input["sample_rate"]
         wake_word_phrase: str | None = None
 
-        if start_stage == PipelineStage.WAKE_WORD:
-            wake_word_settings = WakeWordSettings(
-                timeout=msg["input"].get("timeout", DEFAULT_WAKE_WORD_TIMEOUT),
-                audio_seconds_to_buffer=msg_input.get("audio_seconds_to_buffer", 0),
-            )
-        elif start_stage == PipelineStage.STT:
-            wake_word_phrase = msg["input"].get("wake_word_phrase")
+        # Define stage-specific actions using a dictionary lookup
+        stage_configurations = {
+            PipelineStage.WAKE_WORD: {
+                "wake_word_settings": WakeWordSettings(
+                    timeout=msg_input.get("timeout", DEFAULT_WAKE_WORD_TIMEOUT),
+                    audio_seconds_to_buffer=msg_input.get("audio_seconds_to_buffer", 0),
+                ),
+                "wake_word_phrase": None,  # No wake word phrase for wake word stage
+            },
+            PipelineStage.STT: {
+                "wake_word_settings": None,  # No wake word settings for STT stage
+                "wake_word_phrase": msg_input.get("wake_word_phrase"),
+            },
+        }
 
-        async def stt_stream() -> AsyncGenerator[bytes]:
-            state = None
+        # Apply configuration for the current start_stage if it exists
+        stage_config = stage_configurations.get(
+            start_stage, {"wake_word_settings": None, "wake_word_phrase": None}
+        )
 
-            # Yield until we receive an empty chunk
-            while chunk := await audio_queue.get():
-                if incoming_sample_rate != SAMPLE_RATE:
-                    chunk, state = audioop.ratecv(
-                        chunk,
-                        SAMPLE_WIDTH,
-                        SAMPLE_CHANNELS,
-                        incoming_sample_rate,
-                        SAMPLE_RATE,
-                        state,
-                    )
-                yield chunk
+        wake_word_settings = stage_config["wake_word_settings"]
+        wake_word_phrase = stage_config["wake_word_phrase"]
 
         def handle_binary(
             _hass: HomeAssistant,
@@ -204,7 +202,7 @@ async def websocket_run(
             sample_rate=stt.AudioSampleRates.SAMPLERATE_16000,
             channel=stt.AudioChannels.CHANNEL_MONO,
         )
-        input_args["stt_stream"] = stt_stream()
+        input_args["stt_stream"] = _stt_stream(msg_input["sample_rate"], audio_queue)
         input_args["wake_word_phrase"] = wake_word_phrase
 
         # Audio settings
@@ -252,9 +250,37 @@ async def websocket_run(
 
     # Cancel pipeline if user unsubscribes
     connection.subscriptions[msg["id"]] = run_task.cancel
+    await _execute_pipeline_with_timeout(
+        run_task, pipeline_input, timeout, unregister_handler
+    )
 
+
+async def _stt_stream(
+    incoming_sample_rate: int, audio_queue: asyncio.Queue[bytes]
+) -> AsyncGenerator[bytes]:
+    state = None
+
+    # Yield until we receive an empty chunk
+    while chunk := await audio_queue.get():
+        if incoming_sample_rate != SAMPLE_RATE:
+            chunk, state = audioop.ratecv(
+                chunk,
+                SAMPLE_WIDTH,
+                SAMPLE_CHANNELS,
+                incoming_sample_rate,
+                SAMPLE_RATE,
+                state,
+            )
+        yield chunk
+
+
+async def _execute_pipeline_with_timeout(
+    run_task: asyncio.Task,
+    pipeline_input: Any,
+    timeout: float,
+    unregister_handler: (Callable[[], None] | None),
+) -> None:
     try:
-        # Task contains a timeout
         async with asyncio.timeout(timeout):
             await run_task
     except TimeoutError:
