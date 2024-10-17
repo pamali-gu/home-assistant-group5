@@ -1505,134 +1505,10 @@ async def async_api_adjust_range(
     domain = entity.domain
     service = None
     data: dict[str, Any] = {ATTR_ENTITY_ID: entity.entity_id}
-    range_delta = directive.payload["rangeValueDelta"]
-    range_delta_default = bool(directive.payload["rangeValueDeltaDefault"])
     response_value: int | None = 0
 
-    # Cover Position
-    if instance == f"{cover.DOMAIN}.{cover.ATTR_POSITION}":
-        range_delta = int(range_delta * 20) if range_delta_default else int(range_delta)
-        service = SERVICE_SET_COVER_POSITION
-        if not (current := entity.attributes.get(cover.ATTR_CURRENT_POSITION)):
-            msg = f"Unable to determine {entity.entity_id} current position"
-            raise AlexaInvalidValueError(msg)
-        position = response_value = min(100, max(0, range_delta + current))
-        if position == 100:
-            service = cover.SERVICE_OPEN_COVER
-        elif position == 0:
-            service = cover.SERVICE_CLOSE_COVER
-        else:
-            data[cover.ATTR_POSITION] = position
-
-    # Cover Tilt
-    elif instance == f"{cover.DOMAIN}.tilt":
-        range_delta = int(range_delta * 20) if range_delta_default else int(range_delta)
-        service = SERVICE_SET_COVER_TILT_POSITION
-        current = entity.attributes.get(cover.ATTR_TILT_POSITION)
-        if not current:
-            msg = f"Unable to determine {entity.entity_id} current tilt position"
-            raise AlexaInvalidValueError(msg)
-        tilt_position = response_value = min(100, max(0, range_delta + current))
-        if tilt_position == 100:
-            service = cover.SERVICE_OPEN_COVER_TILT
-        elif tilt_position == 0:
-            service = cover.SERVICE_CLOSE_COVER_TILT
-        else:
-            data[cover.ATTR_TILT_POSITION] = tilt_position
-
-    # Fan speed percentage
-    elif instance == f"{fan.DOMAIN}.{fan.ATTR_PERCENTAGE}":
-        percentage_step = entity.attributes.get(fan.ATTR_PERCENTAGE_STEP) or 20
-        range_delta = (
-            int(range_delta * percentage_step)
-            if range_delta_default
-            else int(range_delta)
-        )
-        service = fan.SERVICE_SET_PERCENTAGE
-        if not (current := entity.attributes.get(fan.ATTR_PERCENTAGE)):
-            msg = f"Unable to determine {entity.entity_id} current fan speed"
-            raise AlexaInvalidValueError(msg)
-        percentage = response_value = min(100, max(0, range_delta + current))
-        if percentage:
-            data[fan.ATTR_PERCENTAGE] = percentage
-        else:
-            service = fan.SERVICE_TURN_OFF
-
-    # Humidifier target humidity
-    elif instance == f"{humidifier.DOMAIN}.{humidifier.ATTR_HUMIDITY}":
-        percentage_step = 5
-        range_delta = (
-            int(range_delta * percentage_step)
-            if range_delta_default
-            else int(range_delta)
-        )
-        service = humidifier.SERVICE_SET_HUMIDITY
-        if not (current := entity.attributes.get(humidifier.ATTR_HUMIDITY)):
-            msg = f"Unable to determine {entity.entity_id} current target humidity"
-            raise AlexaInvalidValueError(msg)
-        min_value = entity.attributes.get(humidifier.ATTR_MIN_HUMIDITY, 10)
-        max_value = entity.attributes.get(humidifier.ATTR_MAX_HUMIDITY, 90)
-        percentage = response_value = min(
-            max_value, max(min_value, range_delta + current)
-        )
-        if percentage:
-            data[humidifier.ATTR_HUMIDITY] = percentage
-
-    # Input Number Value
-    elif instance == f"{input_number.DOMAIN}.{input_number.ATTR_VALUE}":
-        range_delta = float(range_delta)
-        service = input_number.SERVICE_SET_VALUE
-        min_value = float(entity.attributes[input_number.ATTR_MIN])
-        max_value = float(entity.attributes[input_number.ATTR_MAX])
-        current = float(entity.state)
-        data[input_number.ATTR_VALUE] = response_value = min(
-            max_value, max(min_value, range_delta + current)
-        )
-
-    # Number Value
-    elif instance == f"{number.DOMAIN}.{number.ATTR_VALUE}":
-        range_delta = float(range_delta)
-        service = number.SERVICE_SET_VALUE
-        min_value = float(entity.attributes[number.ATTR_MIN])
-        max_value = float(entity.attributes[number.ATTR_MAX])
-        current = float(entity.state)
-        data[number.ATTR_VALUE] = response_value = min(
-            max_value, max(min_value, range_delta + current)
-        )
-
-    # Vacuum Fan Speed
-    elif instance == f"{vacuum.DOMAIN}.{vacuum.ATTR_FAN_SPEED}":
-        range_delta = int(range_delta)
-        service = vacuum.SERVICE_SET_FAN_SPEED
-        speed_list = entity.attributes[vacuum.ATTR_FAN_SPEED_LIST]
-        current_speed = entity.attributes[vacuum.ATTR_FAN_SPEED]
-        current_speed_index = next(
-            (i for i, v in enumerate(speed_list) if v == current_speed), 0
-        )
-        new_speed_index = min(
-            len(speed_list) - 1, max(0, current_speed_index + range_delta)
-        )
-        speed = next(
-            (v for i, v in enumerate(speed_list) if i == new_speed_index), None
-        )
-        data[vacuum.ATTR_FAN_SPEED] = response_value = speed
-
-    # Valve Position
-    elif instance == f"{valve.DOMAIN}.{valve.ATTR_POSITION}":
-        range_delta = int(range_delta * 20) if range_delta_default else int(range_delta)
-        service = valve.SERVICE_SET_VALVE_POSITION
-        if not (current := entity.attributes.get(valve.ATTR_POSITION)):
-            msg = f"Unable to determine {entity.entity_id} current position"
-            raise AlexaInvalidValueError(msg)
-        position = response_value = min(100, max(0, range_delta + current))
-        if position == 100:
-            service = valve.SERVICE_OPEN_VALVE
-        elif position == 0:
-            service = valve.SERVICE_CLOSE_VALVE
-        else:
-            data[valve.ATTR_POSITION] = position
-
-    else:
+    service, data, response_value = get_adjust_range_data_based_on_instance(instance, entity, directive, data)
+    if not service:
         raise AlexaInvalidDirectiveError(DIRECTIVE_NOT_SUPPORTED)
 
     await hass.services.async_call(
@@ -1651,6 +1527,161 @@ async def async_api_adjust_range(
 
     return response
 
+def get_adjust_range_data_based_on_instance(instance, entity, directive, data) -> Any:
+    """Dispatch to the appropriate handler based on the instance."""
+    instance_mapping = {
+        f"{cover.DOMAIN}.{cover.ATTR_POSITION}": handle_adjust_cover_position,
+        f"{cover.DOMAIN}.tilt": handle_adjust_cover_tilt,
+        f"{fan.DOMAIN}.{fan.ATTR_PERCENTAGE}": handle_adjust_fan_speed,
+        f"{humidifier.DOMAIN}.{humidifier.ATTR_HUMIDITY}": handle_adjust_humidifier_target_humidity,
+        f"{input_number.DOMAIN}.{input_number.ATTR_VALUE}": handle_adjust_input_number_value,
+        f"{number.DOMAIN}.{number.ATTR_VALUE}": handle_adjust_number_value,
+        f"{vacuum.DOMAIN}.{vacuum.ATTR_FAN_SPEED}": handle_adjust_vacuum_fan_speed,
+        f"{valve.DOMAIN}.{valve.ATTR_POSITION}": handle_adjust_valve_position,
+    }
+
+    handle_details = instance_mapping.get(instance)
+    if handle_details:
+        return handle_details(entity, directive, data)
+    return None, data, 0
+
+def calculate_range_delta(percentage_step, directive) -> int:
+    """Calculate range delta based on percentage step."""
+    range_delta = get_range_delta(directive)
+    range_delta_default = bool(directive.payload["rangeValueDeltaDefault"])
+    return int(range_delta * percentage_step) if range_delta_default else int(range_delta)
+
+def get_range_delta(directive) -> Any:
+    """Get range delta from directive."""
+    return directive.payload["rangeValueDelta"]
+
+def validate_current_position(entity, attribute) -> int:
+    """Validate the current position of the attribute."""
+    current = entity.attributes.get(attribute)
+    if current is None:
+        msg = f"Unable to determine {entity.entity_id} current position"
+        raise AlexaInvalidValueError(msg)
+    return current
+
+def adjust_position(
+    entity, directive, data, attribute, open_service, close_service, set_service
+) -> Any:
+    """Adjust position or tilt for cover or valve."""
+    range_delta = calculate_range_delta(20, directive)
+    current = validate_current_position(entity, attribute)
+    position = response_value = min(100, max(0, range_delta + current))
+    if position == 100:
+        return open_service, data, response_value
+    if position == 0:
+        return close_service, data, response_value
+
+    data[attribute] = position
+    return set_service, data, response_value
+
+def adjust_number_value(
+    entity, directive, data, min_attr, max_attr, value_attr, service
+) -> Any:
+    """General handler for adjusting number values."""
+    range_delta = float(get_range_delta(directive))
+    min_value = float(entity.attributes[min_attr])
+    max_value = float(entity.attributes[max_attr])
+    current = float(entity.state)
+
+    response_value = min(max_value, max(min_value, range_delta + current))
+    data[value_attr] = response_value
+    return service, data, response_value
+
+def handle_adjust_cover_position(entity, directive, data) -> Any:
+    """Handle cover position."""
+    return adjust_position(
+        entity, directive, data,
+        cover.ATTR_CURRENT_POSITION,
+        cover.SERVICE_OPEN_COVER,
+        cover.SERVICE_CLOSE_COVER,
+        SERVICE_SET_COVER_POSITION
+    )
+
+def handle_adjust_cover_tilt(entity, directive, data) -> Any:
+    """Handle cover tilt."""
+    return adjust_position(
+        entity, directive, data,
+        cover.ATTR_TILT_POSITION,
+        cover.SERVICE_OPEN_COVER_TILT,
+        cover.SERVICE_CLOSE_COVER_TILT,
+        SERVICE_SET_COVER_TILT_POSITION
+    )
+
+def handle_adjust_fan_speed(entity, directive, data) -> Any:
+    """Handle fan speed."""
+    percentage_step = entity.attributes.get(fan.ATTR_PERCENTAGE_STEP, 20)
+    range_delta = calculate_range_delta(percentage_step, directive)
+    current = validate_current_position(entity, fan.ATTR_PERCENTAGE)
+    percentage = response_value = min(100, max(0, range_delta + current))
+    if percentage:
+        data[fan.ATTR_PERCENTAGE] = percentage
+        return fan.SERVICE_SET_PERCENTAGE, data, response_value
+    return fan.SERVICE_TURN_OFF, data, response_value
+
+def handle_adjust_humidifier_target_humidity(entity, directive, data) -> Any:
+    """Handle humidifier target humidity."""
+    percentage_step = 5
+    range_delta = calculate_range_delta(percentage_step, directive)
+    current = validate_current_position(entity, humidifier.ATTR_HUMIDITY)
+    min_value = entity.attributes.get(humidifier.ATTR_MIN_HUMIDITY, 10)
+    max_value = entity.attributes.get(humidifier.ATTR_MAX_HUMIDITY, 90)
+    percentage = response_value = min(
+        max_value, max(min_value, range_delta + current)
+    )
+    if percentage:
+        data[humidifier.ATTR_HUMIDITY] = percentage
+    return humidifier.SERVICE_SET_HUMIDITY, data, response_value
+
+def handle_adjust_input_number_value(entity, directive, data) -> Any:
+    """Handle input number value."""
+    return adjust_number_value(
+        entity, directive, data,
+        input_number.ATTR_MIN,
+        input_number.ATTR_MAX,
+        input_number.ATTR_VALUE,
+        input_number.SERVICE_SET_VALUE
+    )
+
+def handle_adjust_number_value(entity, directive, data) -> Any:
+    """Handle number value."""
+    return adjust_number_value(
+        entity, directive, data,
+        number.ATTR_MIN,
+        number.ATTR_MAX,
+        number.ATTR_VALUE,
+        number.SERVICE_SET_VALUE
+    )
+
+def handle_adjust_vacuum_fan_speed(entity, directive, data) -> Any:
+    """Handle vaccum fan speed."""
+    range_delta = int(get_range_delta(directive))
+    speed_list = entity.attributes[vacuum.ATTR_FAN_SPEED_LIST]
+    current_speed = entity.attributes[vacuum.ATTR_FAN_SPEED]
+    current_speed_index = next(
+        (i for i, v in enumerate(speed_list) if v == current_speed), 0
+    )
+    new_speed_index = min(
+        len(speed_list) - 1, max(0, current_speed_index + range_delta)
+    )
+    speed = next(
+        (v for i, v in enumerate(speed_list) if i == new_speed_index), None
+    )
+    data[vacuum.ATTR_FAN_SPEED] = response_value = speed
+    return vacuum.SERVICE_SET_FAN_SPEED, data, response_value
+
+def handle_adjust_valve_position(entity, directive, data) -> Any:
+    """Handle valve position."""
+    return adjust_position(
+        entity, directive, data,
+        valve.ATTR_POSITION,
+        valve.SERVICE_OPEN_VALVE,
+        valve.SERVICE_CLOSE_VALVE,
+        valve.SERVICE_SET_VALVE_POSITION
+    )
 
 @HANDLERS.register(("Alexa.ChannelController", "ChangeChannel"))
 async def async_api_changechannel(
