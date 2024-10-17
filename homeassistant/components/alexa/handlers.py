@@ -1565,7 +1565,7 @@ def validate_current_position(entity, attribute) -> int:
 
 def adjust_position(
     entity, directive, data, attribute, open_service, close_service, set_service
-) -> Any:
+) -> tuple[str | None, dict[str, Any], int]:
     """Adjust position or tilt for cover or valve."""
     range_delta = calculate_range_delta(20, directive)
     current = validate_current_position(entity, attribute)
@@ -1580,7 +1580,7 @@ def adjust_position(
 
 def adjust_number_value(
     entity, directive, data, min_attr, max_attr, value_attr, service
-) -> Any:
+) -> tuple[str | None, dict[str, Any], int]:
     """General handler for adjusting number values."""
     range_delta = float(get_range_delta(directive))
     min_value = float(entity.attributes[min_attr])
@@ -1591,7 +1591,7 @@ def adjust_number_value(
     data[value_attr] = response_value
     return service, data, response_value
 
-def handle_adjust_cover_position(entity, directive, data) -> Any:
+def handle_adjust_cover_position(entity, directive, data) -> tuple[str | None, dict[str, Any], int]:
     """Handle cover position."""
     return adjust_position(
         entity, directive, data,
@@ -1601,7 +1601,7 @@ def handle_adjust_cover_position(entity, directive, data) -> Any:
         SERVICE_SET_COVER_POSITION
     )
 
-def handle_adjust_cover_tilt(entity, directive, data) -> Any:
+def handle_adjust_cover_tilt(entity, directive, data) -> tuple[str | None, dict[str, Any], int]:
     """Handle cover tilt."""
     return adjust_position(
         entity, directive, data,
@@ -1611,7 +1611,7 @@ def handle_adjust_cover_tilt(entity, directive, data) -> Any:
         SERVICE_SET_COVER_TILT_POSITION
     )
 
-def handle_adjust_fan_speed(entity, directive, data) -> Any:
+def handle_adjust_fan_speed(entity, directive, data) -> tuple[str | None, dict[str, Any], int]:
     """Handle fan speed."""
     percentage_step = entity.attributes.get(fan.ATTR_PERCENTAGE_STEP, 20)
     range_delta = calculate_range_delta(percentage_step, directive)
@@ -1622,7 +1622,7 @@ def handle_adjust_fan_speed(entity, directive, data) -> Any:
         return fan.SERVICE_SET_PERCENTAGE, data, response_value
     return fan.SERVICE_TURN_OFF, data, response_value
 
-def handle_adjust_humidifier_target_humidity(entity, directive, data) -> Any:
+def handle_adjust_humidifier_target_humidity(entity, directive, data) -> tuple[str | None, dict[str, Any], int]:
     """Handle humidifier target humidity."""
     percentage_step = 5
     range_delta = calculate_range_delta(percentage_step, directive)
@@ -1636,7 +1636,7 @@ def handle_adjust_humidifier_target_humidity(entity, directive, data) -> Any:
         data[humidifier.ATTR_HUMIDITY] = percentage
     return humidifier.SERVICE_SET_HUMIDITY, data, response_value
 
-def handle_adjust_input_number_value(entity, directive, data) -> Any:
+def handle_adjust_input_number_value(entity, directive, data) -> tuple[str | None, dict[str, Any], int]:
     """Handle input number value."""
     return adjust_number_value(
         entity, directive, data,
@@ -1646,7 +1646,7 @@ def handle_adjust_input_number_value(entity, directive, data) -> Any:
         input_number.SERVICE_SET_VALUE
     )
 
-def handle_adjust_number_value(entity, directive, data) -> Any:
+def handle_adjust_number_value(entity, directive, data) -> tuple[str | None, dict[str, Any], int]:
     """Handle number value."""
     return adjust_number_value(
         entity, directive, data,
@@ -1656,7 +1656,7 @@ def handle_adjust_number_value(entity, directive, data) -> Any:
         number.SERVICE_SET_VALUE
     )
 
-def handle_adjust_vacuum_fan_speed(entity, directive, data) -> Any:
+def handle_adjust_vacuum_fan_speed(entity, directive, data) -> tuple[str | None, dict[str, Any], int]:
     """Handle vaccum fan speed."""
     range_delta = int(get_range_delta(directive))
     speed_list = entity.attributes[vacuum.ATTR_FAN_SPEED_LIST]
@@ -1673,7 +1673,7 @@ def handle_adjust_vacuum_fan_speed(entity, directive, data) -> Any:
     data[vacuum.ATTR_FAN_SPEED] = response_value = speed
     return vacuum.SERVICE_SET_FAN_SPEED, data, response_value
 
-def handle_adjust_valve_position(entity, directive, data) -> Any:
+def handle_adjust_valve_position(entity, directive, data) -> tuple[str | None, dict[str, Any], int]:
     """Handle valve position."""
     return adjust_position(
         entity, directive, data,
