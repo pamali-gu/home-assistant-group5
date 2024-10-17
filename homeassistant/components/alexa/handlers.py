@@ -1508,8 +1508,6 @@ async def async_api_adjust_range(
     response_value: int | None = 0
 
     service, data, response_value = get_adjust_range_data_based_on_instance(instance, entity, directive, data)
-    if not service:
-        raise AlexaInvalidDirectiveError(DIRECTIVE_NOT_SUPPORTED)
 
     await hass.services.async_call(
         domain, service, data, blocking=False, context=context
@@ -1543,9 +1541,9 @@ def get_adjust_range_data_based_on_instance(instance, entity, directive, data) -
     handle_details = instance_mapping.get(instance)
     if handle_details:
         return handle_details(entity, directive, data)
-    return None, data, 0
+    raise AlexaInvalidDirectiveError(DIRECTIVE_NOT_SUPPORTED)
 
-def calculate_range_delta(percentage_step, directive) -> int:
+def calculate_range_delta(percentage_step, directive) -> float:
     """Calculate range delta based on percentage step."""
     range_delta = get_range_delta(directive)
     range_delta_default = bool(directive.payload["rangeValueDeltaDefault"])
@@ -1557,9 +1555,8 @@ def get_range_delta(directive) -> Any:
 
 def validate_current_position(entity, attribute) -> int:
     """Validate the current position of the attribute."""
-    current = entity.attributes.get(attribute)
-    if current is None:
-        msg = f"Unable to determine {entity.entity_id} current position"
+    if not (current := entity.attributes.get(attribute)):
+        msg = f"Unable to determine {entity.entity_id} current fan speed"
         raise AlexaInvalidValueError(msg)
     return current
 
@@ -1574,7 +1571,6 @@ def adjust_position(
         return open_service, data, response_value
     if position == 0:
         return close_service, data, response_value
-
     data[attribute] = position
     return set_service, data, response_value
 
