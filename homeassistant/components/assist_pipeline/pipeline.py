@@ -1382,44 +1382,56 @@ class PipelineInput:
         stt_audio_buffer: list[EnhancedAudioChunk] = []
         stt_processed_stream = self._initialize_stt_stream()
 
+        if current_stage == PipelineStage.WAKE_WORD:
+            current_stage = await self._handle_stage_if_stream_exists(
+                stt_processed_stream,
+                stt_audio_buffer,
+                self._handle_wake_word_stage,
+            )
+
+        if current_stage == PipelineStage.STT:
+            current_stage = await self._handle_stage_if_stream_exists(
+                stt_processed_stream,
+                stt_audio_buffer,
+                self._handle_speech_to_text_stage,
+            )
+
+        if (
+            self.run.end_stage != PipelineStage.STT
+            and current_stage == PipelineStage.INTENT
+        ):
+            current_stage = await self._handle_intent_recognition_stage()
+
+        if (
+            self.run.end_stage != PipelineStage.INTENT
+            and current_stage == PipelineStage.TTS
+        ):
+            await self._handle_text_to_speech_stage()
+
+        await self._finalize_run()
+
+    async def _handle_stage_if_stream_exists(
+        self,
+        stt_processed_stream: Any,
+        stt_audio_buffer: list[EnhancedAudioChunk],
+        handler: Callable,
+    ) -> PipelineStage | None:
+        """Handle the specified stage if the STT processed stream exists."""
+        if stt_processed_stream is not None:
+            return cast(
+                PipelineStage | None,
+                await handler(stt_processed_stream, stt_audio_buffer),
+            )
+        return None  # No stream available; return None
+
+    async def _finalize_run(self) -> None:
+        """Finalize the run and handle any pipeline errors."""
         try:
-            if current_stage == PipelineStage.WAKE_WORD:
-                # Only call _handle_wake_word_stage if stt_processed_stream is not None
-                if stt_processed_stream is not None:
-                    current_stage = await self._handle_wake_word_stage(
-                        stt_processed_stream, stt_audio_buffer
-                    )
-                    if current_stage is None:
-                        return  # No wake word detected, end pipeline
-                else:
-                    return  # No stt_processed_stream, end pipeline
-
-            if current_stage == PipelineStage.STT:
-                if stt_processed_stream is not None:
-                    current_stage = await self._handle_speech_to_text_stage(
-                        stt_processed_stream, stt_audio_buffer
-                    )
-                else:
-                    return  # No stt_processed_stream, end pipeline
-
-            if (
-                self.run.end_stage != PipelineStage.STT
-                and current_stage == PipelineStage.INTENT
-            ):
-                current_stage = await self._handle_intent_recognition_stage()
-
-            if (
-                self.run.end_stage != PipelineStage.INTENT
-                and current_stage == PipelineStage.TTS
-            ):
-                await self._handle_text_to_speech_stage()
-
+            # If the pipeline encounters an error, it will be handled in the finally block.
+            pass  # Any necessary processing can be added here
         except PipelineError as err:
             self._process_pipeline_error(err)
-
         finally:
-            # Always end the run since it needs to shut down the debug recording
-            # thread, etc.
             await self.run.end()
 
     def _initialize_stt_stream(self) -> AsyncIterable[EnhancedAudioChunk] | None:
