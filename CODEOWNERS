@@ -823,6 +823,7 @@ build.json @home-assistant/supervisor
 /tests/components/lifx/ @Djelibeybi
 /homeassistant/components/light/ @home-assistant/core
 /tests/components/light/ @home-assistant/core
+/homeassistant/components/lightmap/ @ChrisAxt
 /homeassistant/components/linear_garage_door/ @IceBotYT
 /tests/components/linear_garage_door/ @IceBotYT
 /homeassistant/components/linkplay/ @Velleman

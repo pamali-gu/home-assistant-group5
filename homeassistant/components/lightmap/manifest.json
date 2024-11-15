@@ -1,0 +1,10 @@
+{
+  "domain": "lightmap",
+  "name": "Lightmap",
+  "codeowners": ["@ChrisAxt"],
+  "dependencies": [],
+  "documentation": "https://github.com/pamali-gu/home-assistant-group5",
+  "integration_type": "helper",
+  "iot_class": "local_polling",
+  "requirements": []
+}
