@@ -1,0 +1,25 @@
+# Loads default set of integrations. Do not remove.
+default_config:
+
+# Load frontend themes from the themes folder
+frontend:
+  themes: !include_dir_merge_named themes
+  development_repo: /workspace/frontend
+
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml
+
+logger:
+  default: info
+  logs:
+    homeassistant.components.cloud: debug
+
+panel_custom:
+  - name: light-map-panel
+    url_path: light-map
+    sidebar_title: Light Map
+    sidebar_icon: mdi:map
+    module_url: /local/light-map-panel.js
+    config:
+      hello: world
