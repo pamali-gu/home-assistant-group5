@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="131.23334mm"
+   height="216.16458mm"
+   viewBox="0 0 131.23334 216.16458"
+   version="1.1"
+   id="svg1"
+   xml:space="preserve"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"><defs
+     id="defs1" /><g
+     id="layer1"
+     transform="translate(-44.07671,-36.623283)">
+     </g><g
+     id="Rooms"
+     transform="translate(-44.07671,-36.623283)"><g
+       id="LivingRoom"><rect
+         style="fill:#3e3e3e;fill-opacity:0.8;stroke:none;stroke-width:1.92996;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke markers fill"
+         id="rect2"
+         width="60.730129"
+         height="111.15349"
+         x="108.80873"
+         y="65.198082"
+         ry="0" /></g><g
+       id="Bedroom"><rect
+         style="fill:#3e3e3e;fill-opacity:0.8;stroke:none;stroke-width:1.91348;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke markers fill"
+         id="rect5"
+         width="51.332623"
+         height="70.963249"
+         x="117.89075"
+         y="178.42908" /></g><g
+       id="Office"><rect
+         style="fill:#3e3e3e;fill-opacity:0.8;stroke:none;stroke-width:1.91983;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke markers fill"
+         id="rect6"
+         width="45.705574"
+         height="70.972992"
+         x="70.024391"
+         y="178.33798" /></g><g
+       id="Bathroom"><rect
+         style="fill:#3e3e3e;fill-opacity:0.8;stroke:none;stroke-width:1.91767;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke markers fill"
+         id="rect3"
+         width="39.748943"
+         height="29.842163"
+         x="50.025795"
+         y="121.59198" /></g><g
+       id="Kitchen"><rect
+         style="fill:#3e3e3e;fill-opacity:0.8;stroke:none;stroke-width:1.91491;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke markers fill"
+         id="rect1"
+         width="56.969284"
+         height="55.223614"
+         x="49.854214"
+         y="64.901291" /></g><g
+       id="Storage"><rect
+         style="fill:#3e3e3e;fill-opacity:0.8;stroke:none;stroke-width:1.87525;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke markers fill"
+         id="rect4"
+         width="15.598513"
+         height="30.496576"
+         x="91.048286"
+         y="121.72952" /></g><g
+       id="Hall"><rect
+         style="fill:#3e3e3e;fill-opacity:0.8;stroke:none;stroke-width:2.03311;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke markers fill"
+         id="rect9"
+         width="59.147438"
+         height="22.554022"
+         x="49.683571"
+         y="153.71426" /><rect
+         style="fill:#3e3e3e;fill-opacity:0.8;stroke:none;stroke-width:2.85394;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke markers fill"
+         id="rect10"
+         width="18.354595"
+         height="10.563798"
+         x="49.636677"
+         y="176.27499" /></g><g
+       id="Balcony"><rect
+         style="fill:#3e3e3e;fill-opacity:0.8;stroke:none;stroke-width:1.89055;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke markers fill"
+         id="rect7"
+         width="59.869564"
+         height="22.75629"
+         x="109.07915"
+         y="39.31348" /></g>
+         </g>
+<circle id="test_circle" cx="80" cy="100" r="2" fill="green" />
+      </svg>
