@@ -78,12 +78,19 @@ class LightMapPanel extends LitElement {
   }
 
   onSensorClick(sensor) {
-    if (this.placedSensors[sensor.id]) {
-      alert(`Sensor "${sensor.name}" is already placed.`);
+    if (this.isSensorAlreadyPlaced(sensor.id)) {
+      alert("This sensor has already been placed");
       return;
     }
     this.selectedSensor = sensor;
     alert(`Selected sensor: ${sensor.name}`);
+  }
+
+  isSensorAlreadyPlaced(sensorId) {
+    // Check if the sensor is in any room
+    return Object.values(this.placedSensors).some((sensors) =>
+      sensors.some((placedSensor) => placedSensor.id === sensorId)
+    );
   }
 
   getRoomFromCoordinates(x, y) {
@@ -93,7 +100,6 @@ class LightMapPanel extends LitElement {
 
     if (!roomsGroup) return null;
 
-    // Extract translation values from the transform attribute
     const transform = roomsGroup.getAttribute("transform");
     let translateX = 0;
     let translateY = 0;
@@ -105,7 +111,6 @@ class LightMapPanel extends LitElement {
       }
     }
 
-    // Adjust the point coordinates based on translation
     const adjustedX = x - translateX;
     const adjustedY = y - translateY;
 
@@ -150,14 +155,17 @@ class LightMapPanel extends LitElement {
 
     const { x, y } = svgPoint;
 
-    // Determine which room the sensor is being placed in
     const roomId = this.getRoomFromCoordinates(x, y);
     if (!roomId) {
       alert("Sensor placement is outside of any room.");
       return;
     }
 
-    // Add the sensor to the room's sensor list
+    if (this.isSensorAlreadyPlaced(this.selectedSensor.id)) {
+      alert("THIS SENSOR HAS ALREADY BEEN PLACED");
+      return;
+    }
+
     if (!this.placedSensors[roomId]) {
       this.placedSensors[roomId] = [];
     }
@@ -167,7 +175,6 @@ class LightMapPanel extends LitElement {
       y,
     });
 
-    // Create a visual marker for the sensor
     const parser = new DOMParser();
     const svgDoc = parser.parseFromString(this.uploadedSVG, "image/svg+xml");
     const circleElement = svgDoc.createElementNS("http://www.w3.org/2000/svg", "circle");
@@ -181,7 +188,6 @@ class LightMapPanel extends LitElement {
     const serializer = new XMLSerializer();
     this.uploadedSVG = serializer.serializeToString(svgDoc);
 
-    // Mark the sensor as placed and reset the selection
     this.selectedSensor = null;
     this.requestUpdate();
   }
