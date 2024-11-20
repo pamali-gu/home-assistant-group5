@@ -194,6 +194,29 @@ class LightMapPanel extends LitElement {
     this.requestUpdate();
   }
 
+  // Method to handle sensor deletion
+  removeSensor(roomId, sensorIndex, sensor) {
+    // Remove from the placedSensors object
+    this.placedSensors[roomId].splice(sensorIndex, 1);
+    if (this.placedSensors[roomId].length === 0) {
+      delete this.placedSensors[roomId];
+    }
+
+    // Update the SVG to remove the circle
+    const parser = new DOMParser();
+    const svgDoc = parser.parseFromString(this.uploadedSVG, 'image/svg+xml');
+    const circle = svgDoc.querySelector(`circle[data-sensor-id="${sensor.id}"]`);
+    if (circle) {
+      circle.remove();
+    }
+
+    // Serialize back the updated SVG
+    const serializer = new XMLSerializer();
+    this.uploadedSVG = serializer.serializeToString(svgDoc);
+
+    this.requestUpdate();
+  }
+
   render() {
     return html`
       <h1>Light Map Panel</h1>
@@ -210,18 +233,28 @@ class LightMapPanel extends LitElement {
           ${this.roomIds.length
             ? html`
                 <ul>
-                  ${this.roomIds.map((roomId) => html`
-                    <li>
-                      ${roomId}
-                      <ul>
-                        ${(this.placedSensors[roomId] || []).map(
-                          (sensor) => html`<li>${sensor.name} (${sensor.x.toFixed(
-                            1
-                          )}, ${sensor.y.toFixed(1)})</li>`
-                        )}
-                      </ul>
-                    </li>
-                  `)}
+                  ${this.roomIds.map(
+                    (roomId) => html`
+                      <li>
+                        ${roomId}
+                        <ul>
+                          ${(this.placedSensors[roomId] || []).map(
+                            (sensor, index) => html`
+                              <li>
+                                ${sensor.name} (${sensor.x.toFixed(1)}, ${sensor.y.toFixed(1)})
+                                <button
+                                  @click="${() => this.removeSensor(roomId, index, sensor)}"
+                                  style="background: none; border: none; color: red; cursor: pointer;"
+                                >
+                                  ✖
+                                </button>
+                              </li>
+                            `
+                          )}
+                        </ul>
+                      </li>
+                    `
+                  )}
                 </ul>
               `
             : html`<p>No rooms found in the SVG.</p>`}
