@@ -13,6 +13,7 @@ class LightMapPanel extends LitElement {
       panel: { type: Object },
       uploadedSVG: { type: String },
       roomIds: { type: Array },
+      lightSensors: { type: Array }, // New property for light sensors
     };
   }
 
@@ -20,8 +21,57 @@ class LightMapPanel extends LitElement {
     super();
     this.uploadedSVG = '';
     this.roomIds = [];
+    this.lightSensors = [];
+    this.mockTimerInitialized = false;
   }
-  //Upload svg and parse
+
+  // Lifecycle hook to update light sensors whenever hass is updated
+  updated(changedProperties) {
+    if (changedProperties.has('hass')) {
+      this.updateLightSensors();
+    }
+  }
+
+  // Extract light sensors from hass.states
+  updateLightSensors() {
+
+        // Initialize mock data
+        if (!this.mockTimerInitialized) {
+            this.lightSensors = [
+                { id: 'sensor.mock_sensor_1', name: 'Mock Sensor 1', state: '150' },
+                { id: 'sensor.mock_sensor_2', name: 'Mock Sensor 2', state: '200' },
+            ];
+            this.mockTimerInitialized = true;
+
+            // Change mock values after one minute
+            setTimeout(() => {
+                this.lightSensors = [
+                    { id: 'sensor.mock_sensor_1', name: 'Mock Sensor 1', state: '180' },
+                    { id: 'sensor.mock_sensor_2', name: 'Mock Sensor 2', state: '250' },
+                ];
+            }, 60000); // 60000 ms = 1 minute
+        }
+
+    const allEntities = Object.entries(this.hass.states);
+    const sensors = allEntities
+        .filter(
+            ([entityId, state]) =>
+                entityId.startsWith('sensor.') &&
+                state.attributes.device_class === 'illuminance'
+        )
+        .map(([entityId, state]) => ({
+            id: entityId,
+            name: state.attributes.friendly_name || entityId,
+            state: state.state,
+        }));
+
+    // Use mock data if no real sensors are found
+    this.lightSensors = sensors.length
+        ? sensors
+        : this.lightSensors;
+}
+
+  // File upload and SVG parsing logic remains the same
   handleFileUpload(event) {
     const file = event.target.files[0];
     if (file && file.type === "image/svg+xml") {
@@ -36,7 +86,6 @@ class LightMapPanel extends LitElement {
     }
   }
 
-  // Extract room IDs from the SVG content
   extractRoomIds() {
     const parser = new DOMParser();
     const svgDoc = parser.parseFromString(this.uploadedSVG, 'image/svg+xml');
@@ -70,6 +119,20 @@ class LightMapPanel extends LitElement {
                 </ul>`
             : html`<p>No rooms found in the SVG.</p>`}
         </div>
+        <div class="sensor-list">
+          <h3>Light Sensors</h3>
+          ${this.lightSensors.length
+            ? html`
+                <ul>
+                  ${this.lightSensors.map(
+                    (sensor) =>
+                      html`<li>
+                        <strong>${sensor.name}</strong>: ${sensor.state} lx
+                      </li>`
+                  )}
+                </ul>`
+            : html`<p>No light sensors detected.</p>`}
+        </div>
       </div>
     `;
   }
@@ -88,7 +151,8 @@ class LightMapPanel extends LitElement {
         max-width: 100%;
         overflow: auto;
       }
-      .room-list {
+      .room-list,
+      .sensor-list {
         border: 1px solid #ccc;
         padding: 16px;
         background: white;
