@@ -13,7 +13,9 @@ class LightMapPanel extends LitElement {
       panel: { type: Object },
       uploadedSVG: { type: String },
       roomIds: { type: Array },
-      lightSensors: { type: Array }, // New property for light sensors
+      lightSensors: { type: Array },
+      selectedSensor: { type: Object },
+      placedSensors: { type: Object }, // Tracks sensors already placed
     };
   }
 
@@ -22,56 +24,34 @@ class LightMapPanel extends LitElement {
     this.uploadedSVG = '';
     this.roomIds = [];
     this.lightSensors = [];
+    this.selectedSensor = null;
+    this.placedSensors = {}; // Initially no sensors are placed
     this.mockTimerInitialized = false;
   }
 
-  // Lifecycle hook to update light sensors whenever hass is updated
   updated(changedProperties) {
     if (changedProperties.has('hass')) {
       this.updateLightSensors();
     }
   }
 
-  // Extract light sensors from hass.states
   updateLightSensors() {
+    if (!this.mockTimerInitialized) {
+      this.lightSensors = [
+        { id: 'sensor.mock_sensor_1', name: 'Mock Sensor 1', state: '150' },
+        { id: 'sensor.mock_sensor_2', name: 'Mock Sensor 2', state: '200' },
+      ];
+      this.mockTimerInitialized = true;
 
-        // Initialize mock data
-        if (!this.mockTimerInitialized) {
-            this.lightSensors = [
-                { id: 'sensor.mock_sensor_1', name: 'Mock Sensor 1', state: '150' },
-                { id: 'sensor.mock_sensor_2', name: 'Mock Sensor 2', state: '200' },
-            ];
-            this.mockTimerInitialized = true;
+      setTimeout(() => {
+        this.lightSensors = [
+          { id: 'sensor.mock_sensor_1', name: 'Mock Sensor 1', state: '180' },
+          { id: 'sensor.mock_sensor_2', name: 'Mock Sensor 2', state: '250' },
+        ];
+      }, 60000);
+    }
+  }
 
-            // Change mock values after one minute
-            setTimeout(() => {
-                this.lightSensors = [
-                    { id: 'sensor.mock_sensor_1', name: 'Mock Sensor 1', state: '180' },
-                    { id: 'sensor.mock_sensor_2', name: 'Mock Sensor 2', state: '250' },
-                ];
-            }, 60000); // 60000 ms = 1 minute
-        }
-
-    const allEntities = Object.entries(this.hass.states);
-    const sensors = allEntities
-        .filter(
-            ([entityId, state]) =>
-                entityId.startsWith('sensor.') &&
-                state.attributes.device_class === 'illuminance'
-        )
-        .map(([entityId, state]) => ({
-            id: entityId,
-            name: state.attributes.friendly_name || entityId,
-            state: state.state,
-        }));
-
-    // Use mock data if no real sensors are found
-    this.lightSensors = sensors.length
-        ? sensors
-        : this.lightSensors;
-}
-
-  // File upload and SVG parsing logic remains the same
   handleFileUpload(event) {
     const file = event.target.files[0];
     if (file && file.type === "image/svg+xml") {
@@ -97,13 +77,122 @@ class LightMapPanel extends LitElement {
     }
   }
 
+  onSensorClick(sensor) {
+    if (this.placedSensors[sensor.id]) {
+      alert(`Sensor "${sensor.name}" is already placed.`);
+      return;
+    }
+    this.selectedSensor = sensor;
+    alert(`Selected sensor: ${sensor.name}`);
+  }
+
+  getRoomFromCoordinates(x, y) {
+    const parser = new DOMParser();
+    const svgDoc = parser.parseFromString(this.uploadedSVG, "image/svg+xml");
+    const roomsGroup = svgDoc.querySelector("#Rooms");
+
+    if (!roomsGroup) return null;
+
+    // Extract translation values from the transform attribute
+    const transform = roomsGroup.getAttribute("transform");
+    let translateX = 0;
+    let translateY = 0;
+    if (transform) {
+      const match = /translate\((-?\d+\.?\d*),\s*(-?\d+\.?\d*)\)/.exec(transform);
+      if (match) {
+        translateX = parseFloat(match[1]);
+        translateY = parseFloat(match[2]);
+      }
+    }
+
+    // Adjust the point coordinates based on translation
+    const adjustedX = x - translateX;
+    const adjustedY = y - translateY;
+
+    const roomElements = roomsGroup.querySelectorAll("g[id]");
+    for (const room of roomElements) {
+      const rect = room.querySelector("rect");
+      if (!rect) continue;
+
+      const roomX = parseFloat(rect.getAttribute("x"));
+      const roomY = parseFloat(rect.getAttribute("y"));
+      const roomWidth = parseFloat(rect.getAttribute("width"));
+      const roomHeight = parseFloat(rect.getAttribute("height"));
+
+      if (
+        adjustedX >= roomX &&
+        adjustedY >= roomY &&
+        adjustedX <= roomX + roomWidth &&
+        adjustedY <= roomY + roomHeight
+      ) {
+        return room.id;
+      }
+    }
+
+    return null;
+  }
+
+  handleSVGClick(event) {
+    if (!this.selectedSensor) {
+      alert("Please select a sensor first.");
+      return;
+    }
+
+    const svgContainer = this.shadowRoot.querySelector(".svg-container svg");
+    if (!svgContainer) {
+      return;
+    }
+
+    const point = svgContainer.createSVGPoint();
+    point.x = event.clientX;
+    point.y = event.clientY;
+    const svgPoint = point.matrixTransform(svgContainer.getScreenCTM().inverse());
+
+    const { x, y } = svgPoint;
+
+    // Determine which room the sensor is being placed in
+    const roomId = this.getRoomFromCoordinates(x, y);
+    if (!roomId) {
+      alert("Sensor placement is outside of any room.");
+      return;
+    }
+
+    // Add the sensor to the room's sensor list
+    if (!this.placedSensors[roomId]) {
+      this.placedSensors[roomId] = [];
+    }
+    this.placedSensors[roomId].push({
+      ...this.selectedSensor,
+      x,
+      y,
+    });
+
+    // Create a visual marker for the sensor
+    const parser = new DOMParser();
+    const svgDoc = parser.parseFromString(this.uploadedSVG, "image/svg+xml");
+    const circleElement = svgDoc.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circleElement.setAttribute("cx", x);
+    circleElement.setAttribute("cy", y);
+    circleElement.setAttribute("r", "5");
+    circleElement.setAttribute("fill", "blue");
+    circleElement.setAttribute("data-sensor-id", this.selectedSensor.id);
+    svgDoc.documentElement.appendChild(circleElement);
+
+    const serializer = new XMLSerializer();
+    this.uploadedSVG = serializer.serializeToString(svgDoc);
+
+    // Mark the sensor as placed and reset the selection
+    this.selectedSensor = null;
+    this.requestUpdate();
+  }
+
   render() {
     return html`
       <h1>Light Map Panel</h1>
       <p>Upload an SVG file to display it below:</p>
       <input type="file" @change="${this.handleFileUpload}" accept=".svg" />
       <div style="display: flex; gap: 20px; margin-top: 20px;">
-        <div class="svg-container">
+        <div class="svg-container" @click="${this.handleSVGClick}">
           ${this.uploadedSVG
             ? html`<div .innerHTML="${this.uploadedSVG}"></div>`
             : html`<p>No SVG uploaded yet.</p>`}
@@ -113,10 +202,20 @@ class LightMapPanel extends LitElement {
           ${this.roomIds.length
             ? html`
                 <ul>
-                  ${this.roomIds.map(
-                    (roomId) => html`<li>${roomId}</li>`
-                  )}
-                </ul>`
+                  ${this.roomIds.map((roomId) => html`
+                    <li>
+                      ${roomId}
+                      <ul>
+                        ${(this.placedSensors[roomId] || []).map(
+                          (sensor) => html`<li>${sensor.name} (${sensor.x.toFixed(
+                            1
+                          )}, ${sensor.y.toFixed(1)})</li>`
+                        )}
+                      </ul>
+                    </li>
+                  `)}
+                </ul>
+              `
             : html`<p>No rooms found in the SVG.</p>`}
         </div>
         <div class="sensor-list">
@@ -127,10 +226,13 @@ class LightMapPanel extends LitElement {
                   ${this.lightSensors.map(
                     (sensor) =>
                       html`<li>
-                        <strong>${sensor.name}</strong>: ${sensor.state} lx
+                        <a href="#" @click="${() => this.onSensorClick(sensor)}">
+                          <strong>${sensor.name}</strong>
+                        </a>: ${sensor.state} lx
                       </li>`
                   )}
-                </ul>`
+                </ul>
+              `
             : html`<p>No light sensors detected.</p>`}
         </div>
       </div>
