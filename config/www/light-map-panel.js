@@ -15,7 +15,7 @@ class LightMapPanel extends LitElement {
       roomIds: { type: Array },
       lightSensors: { type: Array },
       selectedSensor: { type: Object },
-      placedSensors: { type: Object }, // Tracks sensors already placed
+      placedSensors: { type: Object },
     };
   }
 
@@ -25,7 +25,7 @@ class LightMapPanel extends LitElement {
     this.roomIds = [];
     this.lightSensors = [];
     this.selectedSensor = null;
-    this.placedSensors = {}; // Initially no sensors are placed
+    this.placedSensors = {};
     this.mockTimerInitialized = false;
   }
 
@@ -87,7 +87,6 @@ class LightMapPanel extends LitElement {
   }
 
   isSensorAlreadyPlaced(sensorId) {
-    // Check if the sensor is in any room
     return Object.values(this.placedSensors).some((sensors) =>
       sensors.some((placedSensor) => placedSensor.id === sensorId)
     );
@@ -162,9 +161,11 @@ class LightMapPanel extends LitElement {
     }
 
     if (this.isSensorAlreadyPlaced(this.selectedSensor.id)) {
-      alert("THIS SENSOR HAS ALREADY BEEN PLACED");
+      alert("This sensor has already been placed.");
       return;
     }
+
+    const randomColor = `#${Math.floor(Math.random() * 16777215).toString(16)}`;
 
     if (!this.placedSensors[roomId]) {
       this.placedSensors[roomId] = [];
@@ -173,6 +174,7 @@ class LightMapPanel extends LitElement {
       ...this.selectedSensor,
       x,
       y,
+      color: randomColor,
     });
 
     const parser = new DOMParser();
@@ -181,7 +183,7 @@ class LightMapPanel extends LitElement {
     circleElement.setAttribute("cx", x);
     circleElement.setAttribute("cy", y);
     circleElement.setAttribute("r", "5");
-    circleElement.setAttribute("fill", "blue");
+    circleElement.setAttribute("fill", randomColor); // Apply the random color
     circleElement.setAttribute("data-sensor-id", this.selectedSensor.id);
     svgDoc.documentElement.appendChild(circleElement);
 
@@ -230,12 +232,23 @@ class LightMapPanel extends LitElement {
             ? html`
                 <ul>
                   ${this.lightSensors.map(
-                    (sensor) =>
-                      html`<li>
-                        <a href="#" @click="${() => this.onSensorClick(sensor)}">
-                          <strong>${sensor.name}</strong>
-                        </a>: ${sensor.state} lx
-                      </li>`
+                    (sensor) => {
+                      const placedSensor = Object.values(this.placedSensors)
+                        .flat()
+                        .find((s) => s.id === sensor.id);
+                      const sensorColor = placedSensor ? placedSensor.color : "#ccc";
+
+                      return html`
+                        <li>
+                          <a href="#" @click="${() => this.onSensorClick(sensor)}">
+                            <strong>${sensor.name}</strong>
+                          </a>: ${sensor.state} lx
+                          <span
+                            style="display: inline-block; width: 12px; height: 12px; background-color: ${sensorColor}; margin-left: 8px; border: 1px solid #000;"
+                          ></span>
+                        </li>
+                      `;
+                    }
                   )}
                 </ul>
               `
