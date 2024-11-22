@@ -147,6 +147,7 @@ class LightMapPanel extends LitElement {
       return;
     }
 
+    //Get the click position in the SVG coordinates
     const point = svgContainer.createSVGPoint();
     point.x = event.clientX;
     point.y = event.clientY;
@@ -154,19 +155,23 @@ class LightMapPanel extends LitElement {
 
     const { x, y } = svgPoint;
 
+    //Ensure the placement is inside a room
     const roomId = this.getRoomFromCoordinates(x, y);
     if (!roomId) {
       alert("Sensor placement is outside of any room.");
       return;
     }
 
+    //Check if the sensor is already placed
     if (this.isSensorAlreadyPlaced(this.selectedSensor.id)) {
       alert("This sensor has already been placed.");
       return;
     }
 
+    //Generate a random color for the sensor
     const randomColor = `#${Math.floor(Math.random() * 16777215).toString(16)}`;
 
+    //Add sensor to the placedSensors list
     if (!this.placedSensors[roomId]) {
       this.placedSensors[roomId] = [];
     }
@@ -177,15 +182,47 @@ class LightMapPanel extends LitElement {
       color: randomColor,
     });
 
+    //Parse the SVG and add the circle and wavy lines
     const parser = new DOMParser();
     const svgDoc = parser.parseFromString(this.uploadedSVG, "image/svg+xml");
-    const circleElement = svgDoc.createElementNS("http://www.w3.org/2000/svg", "circle");
-    circleElement.setAttribute("cx", x);
-    circleElement.setAttribute("cy", y);
-    circleElement.setAttribute("r", "5");
-    circleElement.setAttribute("fill", randomColor); // Apply the random color
-    circleElement.setAttribute("data-sensor-id", this.selectedSensor.id);
-    svgDoc.documentElement.appendChild(circleElement);
+
+    //Create a group to hold the sensor elements (circle and wavy lines)
+    const groupElement = svgDoc.createElementNS("http://www.w3.org/2000/svg", "g");
+    groupElement.setAttribute("transform", `translate(${x}, ${y})`);
+    groupElement.setAttribute("data-sensor-id", this.selectedSensor.id);
+
+    const circle = svgDoc.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle.setAttribute("cx", 0);
+    circle.setAttribute("cy", 0);
+    circle.setAttribute("r", "2");
+    circle.setAttribute("stroke", randomColor);
+    circle.setAttribute("stroke-width", "1");
+    circle.setAttribute("fill", "none");
+
+    const wavyLine1 = svgDoc.createElementNS("http://www.w3.org/2000/svg", "path");
+    wavyLine1.setAttribute(
+      "d",
+      "M-1.5 0 Q-1 1, 0 0 Q1 -1, 1.5 0"
+    );
+    wavyLine1.setAttribute("stroke", randomColor);
+    wavyLine1.setAttribute("stroke-width", "1");
+    wavyLine1.setAttribute("fill", "none");
+
+    const wavyLine2 = svgDoc.createElementNS("http://www.w3.org/2000/svg", "path");
+    wavyLine2.setAttribute(
+      "d",
+      "M-1.5 0.5 Q-1 1.5, 0 0.5 Q1 -0.5, 1.5 0.5"
+    );
+    wavyLine2.setAttribute("stroke", randomColor);
+    wavyLine2.setAttribute("stroke-width", "1");
+    wavyLine2.setAttribute("fill", "none");
+
+    //Append the circle and wavy lines to the group
+    groupElement.appendChild(circle);
+    groupElement.appendChild(wavyLine1);
+    groupElement.appendChild(wavyLine2);
+
+    svgDoc.documentElement.appendChild(groupElement);
 
     const serializer = new XMLSerializer();
     this.uploadedSVG = serializer.serializeToString(svgDoc);
@@ -194,15 +231,16 @@ class LightMapPanel extends LitElement {
     this.requestUpdate();
   }
 
-  // Method to handle sensor deletion
+
+  //Method to handle sensor deletion
   removeSensor(roomId, sensorIndex, sensor) {
-    // Remove from the placedSensors object
+    //Remove from the placedSensors object
     this.placedSensors[roomId].splice(sensorIndex, 1);
     if (this.placedSensors[roomId].length === 0) {
       delete this.placedSensors[roomId];
     }
 
-    // Update the SVG to remove the circle
+    //Update the SVG to remove the circle
     const parser = new DOMParser();
     const svgDoc = parser.parseFromString(this.uploadedSVG, 'image/svg+xml');
     const circle = svgDoc.querySelector(`circle[data-sensor-id="${sensor.id}"]`);
@@ -210,7 +248,7 @@ class LightMapPanel extends LitElement {
       circle.remove();
     }
 
-    // Serialize back the updated SVG
+    //Serialize back the updated SVG
     const serializer = new XMLSerializer();
     this.uploadedSVG = serializer.serializeToString(svgDoc);
 
