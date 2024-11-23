@@ -189,7 +189,7 @@ class LightMapPanel extends LitElement {
     //Create a group to hold the sensor elements (circle and wavy lines)
     const groupElement = svgDoc.createElementNS("http://www.w3.org/2000/svg", "g");
     groupElement.setAttribute("transform", `translate(${x}, ${y})`);
-    groupElement.setAttribute("data-sensor-id", this.selectedSensor.id);
+    groupElement.setAttribute("id", this.selectedSensor.id);
 
     const circle = svgDoc.createElementNS("http://www.w3.org/2000/svg", "circle");
     circle.setAttribute("cx", 0);
@@ -232,23 +232,22 @@ class LightMapPanel extends LitElement {
   }
 
 
-  //Method to handle sensor deletion
   removeSensor(roomId, sensorIndex, sensor) {
-    //Remove from the placedSensors object
     this.placedSensors[roomId].splice(sensorIndex, 1);
     if (this.placedSensors[roomId].length === 0) {
       delete this.placedSensors[roomId];
     }
 
-    //Update the SVG to remove the circle
+    //Update the SVG to remove the group containing the sensor elements
     const parser = new DOMParser();
-    const svgDoc = parser.parseFromString(this.uploadedSVG, 'image/svg+xml');
-    const circle = svgDoc.querySelector(`circle[data-sensor-id="${sensor.id}"]`);
-    if (circle) {
-      circle.remove();
+    const svgDoc = parser.parseFromString(this.uploadedSVG, "image/svg+xml");
+
+    //Find the group by the sensor ID
+    const groupElement = svgDoc.querySelector(`g[id="${sensor.id}"]`);
+    if (groupElement) {
+      groupElement.remove();
     }
 
-    //Serialize back the updated SVG
     const serializer = new XMLSerializer();
     this.uploadedSVG = serializer.serializeToString(svgDoc);
 
