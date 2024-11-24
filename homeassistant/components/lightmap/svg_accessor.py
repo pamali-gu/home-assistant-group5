@@ -1,9 +1,11 @@
 """Handles svg-related operations for the Lightmap component."""
 
 import re
-from xml.etree.ElementTree import Element
+from lxml.etree import Element, parse
+from homeassistant.components.lightmap.types import RoomDimensions
 
-from defusedxml.ElementTree import parse
+# from defusedxml.ElementTree import parse
+from typing import Optional
 
 
 def extract_rooms_from_svg(svg_path: str) -> list[Element]:
@@ -80,7 +82,30 @@ def get_room_from_element(svg_path: str, element_id: str) -> str | None:
     return None
 
 
-def get_element(svg_path: str, element_id: str) -> Element | None:
+def get_room_rect_dimensions(room_parent_element: Element) -> RoomDimensions | None:
+    """
+    Get the dimensions of a room rectangle
+
+    Args:
+        room_parent_element (str): Parent element of the room.
+
+    Returns:
+        A dict containing dimension information of the rectangle element.
+    """
+    rect = room_parent_element.find("svg:rect", {"svg": "http://www.w3.org/2000/svg"})
+
+    if rect is None:
+        return None
+
+    return {
+        "width": rect.attrib.get("width"),
+        "height": rect.attrib.get("height"),
+        "x": rect.attrib.get("x"),
+        "y": rect.attrib.get("y"),
+    }
+
+
+def get_element(svg_path: str, element_id: str) -> Optional[Element]:
     """Extract an element by its ID.
 
     Args:
