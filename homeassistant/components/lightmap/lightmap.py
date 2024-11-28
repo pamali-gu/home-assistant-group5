@@ -123,45 +123,26 @@ class LightMapSensor:
         )
 
     def _normalize_sensor_reading(self) -> float:
+        """
+        Normalizes readings from the sensor
+        """
         return (self._sensor_reading - self._sensor_min) / (
             self._sensor_max - self._sensor_min
         )
 
-    def calculate_light_radial(self):
+    def _create_radial_gradient(
+        self,
+        sensor_x: float,
+        x_translation: float,
+        sensor_y: float,
+        y_translation: float,
+        radius_val: float,
+        radial_firststop_opacity: float,
+    ) -> Element:
         """
-        Calculate light radial distance.
-
-        Assumption: We assume that photoresistors are used where
-        the light intesnity is proportional to the resistance -
-        in other words, as light intensity increase, resistance increases.
+        Creates the radial gradient element and its corresponding
+        stops.
         """
-        room_id = get_room_from_element(
-            self._svg_path, self._sensor_svg_id
-        )  # Get room to know what to edit
-
-        sensor_x, sensor_y = get_element_coordinates(
-            self._svg_path, self._sensor_svg_id
-        )  # Used for the center point of gradient
-
-        # Now that we have the room element, we can get coords and put rectangle over it
-        room_parent_element = get_element(self._svg_path, room_id)
-        room_rectangle_dimensions = get_room_rect_dimensions(room_parent_element)
-
-        new_rectangle = Element("rect")
-
-        # Get translation of the Rooms element, make positive and put them on
-        # the cx cy fx fy
-        x_translation, y_translation = map(
-            abs, get_translation_from_svg(self._svg_path, "Rooms")
-        )
-
-        # Get radial radius calculation.
-        radius_val = self._convert_sensor_to_radius()
-
-        # Get offset calculation
-        radial_firststop_opacity = self._normalize_sensor_reading() * self._MAX_OFFSET
-
-        # Process room element to get the coordinates of the rectangle.
         radial_gradient = Element("radialGradient")
         radial_gradient.set("id", f"radial-{self._sensor_svg_id}")
         radial_gradient.set("cx", str(sensor_x + x_translation))
@@ -187,19 +168,82 @@ class LightMapSensor:
         )
         second_gradient_stop.set("id", f"{radial_gradient.attrib.get("id")}-stop-2")
 
+        return radial_gradient
+
+    def _create_overlapping_rectangle(self, room_rectangle_dimensions: dict) -> Element:
+        """
+        Creates a new rectangle that will
+        overlap the room and contain the radial gradient
+        """
         rect_params = {
             **room_rectangle_dimensions,
             "style": f"fill:url(#radial-{self._sensor_svg_id});fill-opacity:1;fill-rule:nonzero;stroke:#000000;stroke-width:4.17796;stroke-dasharray:none;stroke-opacity:0;paint-order:stroke markers fill",
         }
 
+        new_rectangle = Element("rect")
+
         for key, value in rect_params.items():
             new_rectangle.set(key, str(value))
 
+        return new_rectangle
+
+    def _add_lightmap_to_svg(
+        self,
+        room_parent_element: Element,
+        radial_gradient: Element,
+        overlapping_rect: Element,
+    ):
+        """
+        Adds the lightmap adjustments to the svg
+        """
         room_element_parent = room_parent_element.getparent()
         room_index = room_element_parent.index(room_parent_element)
         # Put new rectangle on top of old rectangle.
-        room_element_parent.insert(room_index, new_rectangle)
+        room_element_parent.insert(room_index, overlapping_rect)
         tree = room_element_parent.getroottree()
         root = tree.getroot()
         root.append(radial_gradient)
         tree.write(self._svg_path)
+
+    def calculate_light_radial(self):
+        """
+        Calculate light radial distance.
+
+        Assumption: We assume that photoresistors are used where
+        the light intesnity is proportional to the resistance -
+        in other words, as light intensity increase, resistance increases.
+        """
+        room_id = get_room_from_element(
+            self._svg_path, self._sensor_svg_id
+        )  # Get room to know what to edit
+
+        sensor_x, sensor_y = get_element_coordinates(
+            self._svg_path, self._sensor_svg_id
+        )  # Used for the center point of gradient
+
+        # Get translation of the Rooms element, make positive and put them on
+        # the cx cy fx fy
+        x_translation, y_translation = map(
+            abs, get_translation_from_svg(self._svg_path, "Rooms")
+        )
+
+        # get new rectangle in which the gradient will be placed.
+        room_parent_element = get_element(self._svg_path, room_id)
+        room_rectangle_dimensions = get_room_rect_dimensions(room_parent_element)
+        overlapping_rect = self._create_overlapping_rectangle(room_rectangle_dimensions)
+
+        # Create radial element
+        radius_val = self._convert_sensor_to_radius()
+        radial_firststop_opacity = self._normalize_sensor_reading() * self._MAX_OFFSET
+        radial_gradient = self._create_radial_gradient(
+            sensor_x,
+            x_translation,
+            sensor_y,
+            y_translation,
+            radius_val,
+            radial_firststop_opacity,
+        )
+
+        self._add_lightmap_to_svg(
+            room_parent_element, radial_gradient, overlapping_rect
+        )

@@ -14,7 +14,7 @@ SENSOR_MIN = 0
 def test_calculate_light_radial() -> None:
     living_room_svg_sensor = LightMapSensor(
         sensor_svg_id=SENSOR_SVG_ID,
-        sensor_reading=1000,
+        sensor_reading=4095,
         sensor_max=SENSOR_MAX,
         sensor_min=SENSOR_MIN,
         svg_containing_sensor_path=SVG_PATH,
