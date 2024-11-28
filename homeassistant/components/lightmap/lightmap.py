@@ -52,6 +52,14 @@ class LightMapSensor:
     _sensor_max: float
     _sensor_min: float
     _svg_path: str
+    _MAX_RADIAL_RADIUS: float
+    _MIN_RADIAL_RADIUS: float = 0.0
+
+    # This was determine based on our Sensor with a max value of 4095,
+    # where 4095 would correspond to a max radius of 30. (4095/30 = 136.5)
+    # If a sensor has a different max, we will divide it by this constant to
+    # determine the radius max accordingly.
+    _RADIUS_CONSTANT: float = 136.5
 
     def __init__(
         self,
@@ -66,6 +74,8 @@ class LightMapSensor:
         self._sensor_max = sensor_max
         self._sensor_min = sensor_min
         self._svg_path = svg_containing_sensor_path
+
+        self._MAX_RADIAL_RADIUS = self._sensor_max / self._RADIUS_CONSTANT
 
     def set_sensor_id(self, sensor_id: str) -> None:
         """Set the sensor id"""
@@ -103,6 +113,14 @@ class LightMapSensor:
     def set_svg_containing_sensor_path(self, svg_path: str) -> None:
         self._svg_path = svg_path
 
+    def _convert_sensor_to_radius(self) -> float:
+        """Convert sensor reading to corresponding radius values."""
+        return self._MIN_RADIAL_RADIUS + (
+            (self._sensor_reading - self._sensor_min)
+            / (self._sensor_max - self._sensor_min)
+            * (self._MAX_RADIAL_RADIUS - self._MIN_RADIAL_RADIUS)
+        )
+
     def calculate_light_radial(self):
         """
         Calculate light radial distance.
@@ -130,6 +148,8 @@ class LightMapSensor:
         x_translation, y_translation = map(
             abs, get_translation_from_svg(self._svg_path, "Rooms")
         )
+
+        # Get radial radius calculation.
 
         # Process room element to get the coordinates of the rectangle.
         radial_gradient = Element("radialGradient")
@@ -172,73 +192,3 @@ class LightMapSensor:
         root = tree.getroot()
         root.append(radial_gradient)
         tree.write(self._svg_path)
-
-
-''' def calculate_light_radial(sensor_value: float, svg_path: str, sensor_element_id: str):
-    """
-    Calculate light radial distance.
-
-    We assume a photoresistor is used to read light
-    intensity values.
-
-    Sensor used for testing specs:
-      - Photoresistor
-      - 0 - 4095 (high  - low light intensity)
-
-    """
-
-    """
-    Option 1:
-    1. Check sensor value and convert it.
-    2. Make the radial calculation?
-    3. Return the radial value
-    """
-
-    """
-    <radialGradient
-           id="light3"
-           cx="200.47864"
-           cy="127.46005"
-           r="20.677694" # radius What it does: Sets how far the gradient spreads outward. Adjust it to make the glow smaller or larger based on intensity.
-           gradientTransform="scale(1,1)"
-           fx="200.47864"
-           fy="127.46005"
-           gradientUnits="userSpaceOnUse">
-
-        # stop-color: color of the gradient stops, adjusts the brightness of the light.
-        # Use lower RGB for dimmer light.
-
-        # stop-opacity: Controls the transparency at each stop.
-        # Lower values make the gradient fade more quickly.
-
-          <stop
-             offset="0%"
-             style="stop-color:rgba(255,255,10,1); stop-opacity:1" 
-             id="stop5" />
-          <stop
-             offset="100%"
-             style="stop-color:rgba(255,255,255,0); stop-opacity:0"
-             id="stop6" />
-        </radialGradient>
-    """
-
-    # get_room_from_element can get the room if i give the sensorID
-
-    # get_element_coordiantes of the sensor, then I will have coords
-    # can adjust svg of the room by adding a rectangle on top of it, then use global
-    # coords as thats what it uses.
-
-    pass
-'''
-'''
-def update_svg(svg_path: str) -> None:
-    """Update the SVG styling."""
-    """
-1. Get the SVG from storage.
-    2. Update the SVG.
-    3. Save the SVG.
-    4. Send updated SVG to frontend.
-    """
-    svg = get_element(svg_path)
-    pass
-'''
