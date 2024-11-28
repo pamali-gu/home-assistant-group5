@@ -60,6 +60,7 @@ class LightMapSensor:
     # If a sensor has a different max, we will divide it by this constant to
     # determine the radius max accordingly.
     _RADIUS_CONSTANT: float = 136.5
+    _MAX_OFFSET: float = 50.0
 
     def __init__(
         self,
@@ -121,6 +122,11 @@ class LightMapSensor:
             * (self._MAX_RADIAL_RADIUS - self._MIN_RADIAL_RADIUS)
         )
 
+    def _normalize_sensor_reading(self) -> float:
+        return (self._sensor_reading - self._sensor_min) / (
+            self._sensor_max - self._sensor_min
+        )
+
     def calculate_light_radial(self):
         """
         Calculate light radial distance.
@@ -150,6 +156,10 @@ class LightMapSensor:
         )
 
         # Get radial radius calculation.
+        radius_val = self._convert_sensor_to_radius()
+
+        # Get offset calculation
+        radial_firststop_opacity = self._normalize_sensor_reading() * self._MAX_OFFSET
 
         # Process room element to get the coordinates of the rectangle.
         radial_gradient = Element("radialGradient")
@@ -158,14 +168,15 @@ class LightMapSensor:
         radial_gradient.set("cy", str(sensor_y + y_translation))
         radial_gradient.set("fx", str(sensor_x + x_translation))
         radial_gradient.set("fy", str(sensor_y + y_translation))
-        radial_gradient.set("r", "39")  # TODO: Calculate radius.
+        radial_gradient.set("r", str(radius_val))
         radial_gradient.set("gradientTransfrom", "scale(1,1)")
         radial_gradient.set("gradientUnits", "userSpaceOnUse")
 
         first_gradient_stop = SubElement(radial_gradient, "stop")
         first_gradient_stop.set("offset", "0%")
         first_gradient_stop.set(
-            "style", "stop-color:rgba(255,255,10,1); stop-opacity:0.8"
+            "style",
+            f"stop-color:rgba(255,255,10,1);stop-opacity:{str(radial_firststop_opacity)}",
         )
         first_gradient_stop.set("id", f"{radial_gradient.attrib.get("id")}-stop-1")
 

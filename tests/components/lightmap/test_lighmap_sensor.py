@@ -14,7 +14,7 @@ SENSOR_MIN = 0
 def test_calculate_light_radial() -> None:
     living_room_svg_sensor = LightMapSensor(
         sensor_svg_id=SENSOR_SVG_ID,
-        sensor_reading=500.5,
+        sensor_reading=1000,
         sensor_max=SENSOR_MAX,
         sensor_min=SENSOR_MIN,
         svg_containing_sensor_path=SVG_PATH,
@@ -24,7 +24,7 @@ def test_calculate_light_radial() -> None:
 
 
 def test_sensor_to_radius_conversion_happy() -> None:
-    """tests the calculation"""
+    """tests the radius calculation"""
 
     living_room_svg_sensor = LightMapSensor(
         sensor_svg_id=SENSOR_SVG_ID,
@@ -38,3 +38,19 @@ def test_sensor_to_radius_conversion_happy() -> None:
     result_radius = living_room_svg_sensor._convert_sensor_to_radius()
 
     assert expected_radius == result_radius
+
+
+def test_sensor_normalization_happy() -> None:
+    """Test the normalization of offset values"""
+
+    living_room_svg_sensor = LightMapSensor(
+        sensor_svg_id=SENSOR_SVG_ID,
+        sensor_reading=4095,
+        sensor_max=SENSOR_MAX,
+        sensor_min=SENSOR_MIN,
+        svg_containing_sensor_path=SVG_PATH,
+    )
+
+    result_offset = living_room_svg_sensor._normalize_sensor_reading()
+    expected_offset = 1.0
+    assert expected_offset == result_offset
