@@ -1,30 +1,8 @@
-"""Core logic for the Lightmap component.
+"""
+Core logic for the Lightmap component.
 
 This module handles the integration of sensors, updates SVG styling
 based on sensor values.
-
-
-
-Assumptions and Scope:
-  - Sensor placement:
-    Either:
-        - The sensors are placed at or near the light source.
-            - In other words, if the sensor picks up a lightsource,
-              we assume the further we move from the sensor in any direction,
-              the less light we get.
-    OR:
-        - The sensors are placed on the plant itself.
-
-    With both options we cannot ensure 100% accurate radials, but the above
-    two options are ways to increase the accuracy.
-
-
-    To ensure more accuracy, light radials of multiple sensors can overlap,
-    where the radial with a higher reading takes precedence over lower level 
-    radials.
-
-
-    OR we just assume the point of the sensor WITHOUT gradient.
 """
 
 from homeassistant.components.lightmap.svg_accessor import (
@@ -209,9 +187,9 @@ class LightMapSensor:
         """
         Calculate light radial distance.
 
-        Assumption: We assume that photoresistors are used where
-        the light intesnity is proportional to the resistance -
-        in other words, as light intensity increase, resistance increases.
+        NOTE: The sensors we used for testing have the light intensity
+        proportional to the resistance - in other words,
+        as light intensity increase, resistance increases.
         """
         room_id = get_room_from_element(
             self._svg_path, self._sensor_svg_id
