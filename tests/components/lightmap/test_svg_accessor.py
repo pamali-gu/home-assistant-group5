@@ -6,7 +6,10 @@ from homeassistant.components.lightmap.svg_accessor import (
     get_element_coordinates,
     get_room_from_element,
     get_translation_from_svg,
+    get_room_rect_dimensions,
 )
+
+from lxml import etree
 
 svg_path = "./tests/components/lightmap/Floorplan-2.svg"
 test_element = "test_circle"
@@ -76,3 +79,53 @@ def test_get_tranlation_from_svg() -> None:
     assert translation_y == -36.623283
     assert translation_x is not None
     assert translation_y is not None
+
+
+def test_get_room_rect_dimensions() -> None:
+    """
+    Check that the dimensions of a rectangle child of a room element
+    is correctly returned.
+
+    The test validates:
+    - The function returns the correct dict type and values inside of the dict.
+    """
+
+    def _create_test_element() -> etree.Element:
+
+        namespaces = {
+            None: "http://www.w3.org/2000/svg",  # Default namespace
+            "xlink": "http://www.w3.org/1999/xlink",
+            "svg": "http://www.w3.org/2000/svg",
+        }
+
+        # Create the root <g> element with namespaces
+        g = etree.Element("g", nsmap=namespaces, id="LivingRoom")
+
+        # Create the <rect> element as a child of <g>
+        etree.SubElement(
+            g,
+            "{http://www.w3.org/2000/svg}rect",
+            style="fill:#3e3e3e;fill-opacity:0.8;stroke:none;stroke-width:1.92996;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke markers fill",
+            id="rect2",
+            width="60.730129",
+            height="111.15349",
+            x="108.80873",
+            y="65.198082",
+            ry="0",
+        )
+
+        print(etree.tostring(g, pretty_print=True).decode())
+        return g
+
+    expected = {
+        "width": "60.730129",
+        "height": "111.15349",
+        "x": "108.80873",
+        "y": "65.198082",
+    }
+
+    test_room_element = _create_test_element()
+
+    result = get_room_rect_dimensions(test_room_element)
+
+    assert expected == result
