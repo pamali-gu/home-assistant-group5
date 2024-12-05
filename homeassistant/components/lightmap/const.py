@@ -1,10 +1,10 @@
-"""Constants for the storage_handler integration."""
+"""Constants for the lightmap integration."""
 
 import re
 
 from homeassistant.components.media_player import MediaClass
 
-DOMAIN = "storage_handler"
+DOMAIN = "lightmap"
 MEDIA_MIME_TYPES = "image"
 MEDIA_CLASS_MAP = {
     "image": MediaClass.IMAGE,
