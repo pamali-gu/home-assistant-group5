@@ -22,3 +22,17 @@ panel_custom:
     module_url: /local/light-map-panel.js
     config:
       hello: world
+
+sensor:
+  - platform: template
+    sensors:
+      test_sensor:
+        unique_id: "test_sensor_unique_id_1"
+        friendly_name: "Test Sensor"
+        unit_of_measurement: "lux"
+        value_template: "{{ 100 }}"
+      test_sensor_2:
+        unique_id: "test_sensor_unique_id_2"
+        friendly_name: "Test Sensor 2"
+        unit_of_measurement: "lux"
+        value_template: "{{ 3000 }}"
