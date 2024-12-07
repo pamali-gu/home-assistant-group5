@@ -60,8 +60,8 @@ async def get_sensors_in_category_range(hass: HomeAssistant, category: str) -> d
         A dict of sensors that fall within a given category
 
     """
-    low_category_value = 0
-    med_category_value = 0
+    low_category_value: float = 0.0
+    med_category_value: float = 0.0
     within_category = {}
 
     sensor_averages = await get_average_light_sensors(hass)
@@ -74,16 +74,16 @@ async def get_sensors_in_category_range(hass: HomeAssistant, category: str) -> d
             updated_max = (
                 max_value - min_value if min_value >= 0 else max_value + abs(min_value)
             )
-            low_category_value = int(updated_max * (33 / 100))
-            med_category_value = int(updated_max * (66 / 100))
+            low_category_value = updated_max * (33 / 100)
+            med_category_value = updated_max * (66 / 100)
 
             if (
-                category.lower() == "low"
-                and average_value <= low_category_value
-                or category.lower() == "medium"
-                and average_value > low_category_value <= med_category_value
-                or category.lower() == "high"
-                and average_value > med_category_value
+                (category.lower() == "low" and average_value <= low_category_value)
+                or (
+                    category.lower() == "medium"
+                    and low_category_value < average_value <= med_category_value
+                )
+                or (category.lower() == "high" and average_value > med_category_value)
             ):
                 within_category[entity_id] = average_value
 

@@ -108,9 +108,8 @@ def test_get_sensor_range() -> None:
     assert max_value == 500
 
     mock_hass.states.get = MagicMock(return_value=None)
-    min_value, max_value = get_sensor_range(mock_hass, "sensor.unknown")
-    assert min_value is None
-    assert max_value is None
+    sensor_range = get_sensor_range(mock_hass, "sensor.unknown")
+    assert sensor_range is None
 
 
 def test_is_number() -> None:
