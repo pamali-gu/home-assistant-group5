@@ -8,8 +8,9 @@ import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.event import async_track_state_change
+from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.components.lightmap.lightmap import LightMapSensor
+from datetime import timedelta
 
 
 DOMAIN = "lightmap"
@@ -21,15 +22,24 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
     sensor_config_list = config.get("mqtt", {}).get("sensor")
 
-    sensor_ids = []
+    lightmap_sensors = []
     for sensor in sensor_config_list:
-        sensor_ids.append(f"sensor.{sensor["name"]}")
+        lightmap_sensors.append(
+            LightMapSensor(
+                sensor_svg_id=f"sensor.{sensor["name"]}",
+                sensor_max=4095,
+                sensor_min=0,
+                hass=hass,
+            ),
+        )
 
-    async def sensor_state_change(entity_id, old_state, new_state):
-        if new_state:
-            LOGGER.debug(f"sensor with id: {entity_id} has new reading: {new_state}")
-        else:
-            LOGGER.debug("no change")
+    async def periodic_lightmap_update():
+        """Action for periodically updating the lightmap"""
+        for sensor in lightmap_sensors:
+            await sensor.update_lightmap()
 
-    hass.helpers.event.async_track_state_change(sensor_ids, sensor_state_change)
+    hass.helpers.event.async_track_time_interval(
+        hass, periodic_lightmap_update, timedelta(seconds=20)
+    )
+
     return True
