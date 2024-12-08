@@ -13,7 +13,6 @@ from homeassistant.components.lightmap.svg_accessor import (
     get_translation_from_svg,
 )
 from lxml.etree import Element, SubElement
-from defusedxml.ElementTree import parse
 from homeassistant.core import HomeAssistant
 
 
@@ -46,8 +45,8 @@ class LightMapSensor:
         sensor_svg_id: str,
         sensor_max: float,
         sensor_min: float,
-        svg_containing_sensor_path: str,
         hass: HomeAssistant,
+        svg_containing_sensor_path: str = None,
     ):
         self._sensor_svg_id = sensor_svg_id
         self._sensor_max = sensor_max
@@ -180,7 +179,7 @@ class LightMapSensor:
         root.append(radial_gradient)
         tree.write(self._svg_path)
 
-    def calculate_light_radial(self):
+    def _calculate_light_radial(self) -> tuple[Element, Element, Element]:
         """
         Calculate light radial distance.
 
@@ -220,6 +219,12 @@ class LightMapSensor:
             y_translation,
             radius_val,
             radial_firststop_opacity,
+        )
+        return room_parent_element, radial_gradient, overlapping_rect
+
+    def update_lightmap(self):
+        room_parent_element, radial_gradient, overlapping_rect = (
+            self._calculate_light_radial()
         )
 
         self._add_lightmap_to_svg(

@@ -36,7 +36,7 @@ def test_calculate_light_radial(mock_hass) -> None:
         hass=mock_hass,
     )
 
-    living_room_svg_sensor.calculate_light_radial()
+    living_room_svg_sensor.update_lightmap()
 
 
 @pytest.mark.parametrize("mock_sensor_value", [(4095)])
