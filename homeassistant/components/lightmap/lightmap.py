@@ -1,18 +1,18 @@
-"""
-Core logic for the Lightmap component.
+"""Core logic for the Lightmap component.
 
 This module handles the integration of sensors, updates SVG styling
 based on sensor values.
 """
 
+from lxml.etree import Element, SubElement
+
 from homeassistant.components.lightmap.svg_accessor import (
-    get_room_from_element,
-    get_element_coordinates,
     get_element,
+    get_element_coordinates,
+    get_room_from_element,
     get_room_rect_dimensions,
     get_translation_from_svg,
 )
-from lxml.etree import Element, SubElement
 from homeassistant.core import HomeAssistant
 
 
@@ -88,9 +88,7 @@ class LightMapSensor:
         )
 
     def _normalize_sensor_reading(self, sensor_reading: float) -> float:
-        """
-        Normalizes readings from the sensor
-        """
+        """Normalizes readings from the sensor"""
         return (sensor_reading - self._sensor_min) / (
             self._sensor_max - self._sensor_min
         )
@@ -113,8 +111,7 @@ class LightMapSensor:
         radius_val: float,
         radial_firststop_opacity: float,
     ) -> Element:
-        """
-        Creates the radial gradient element and its corresponding
+        """Creates the radial gradient element and its corresponding
         stops.
         """
         radial_gradient = Element("radialGradient")
@@ -131,7 +128,7 @@ class LightMapSensor:
         first_gradient_stop.set("offset", "0%")
         first_gradient_stop.set(
             "style",
-            f"stop-color:rgba(255,255,10,1);stop-opacity:{str(radial_firststop_opacity)}",
+            f"stop-color:rgba(255,255,10,1);stop-opacity:{radial_firststop_opacity!s}",
         )
         first_gradient_stop.set("id", f"{radial_gradient.attrib.get("id")}-stop-1")
 
@@ -145,8 +142,7 @@ class LightMapSensor:
         return radial_gradient
 
     def _create_overlapping_rectangle(self, room_rectangle_dimensions: dict) -> Element:
-        """
-        Creates a new rectangle that will
+        """Creates a new rectangle that will
         overlap the room and contain the radial gradient
         """
         rect_params = {
@@ -167,9 +163,7 @@ class LightMapSensor:
         radial_gradient: Element,
         overlapping_rect: Element,
     ):
-        """
-        Adds the lightmap adjustments to the svg
-        """
+        """Adds the lightmap adjustments to the svg"""
         room_element_parent = room_parent_element.getparent()
         room_index = room_element_parent.index(room_parent_element)
         # Put new rectangle on top of old rectangle.
@@ -180,8 +174,7 @@ class LightMapSensor:
         tree.write(self._svg_path)
 
     def _calculate_light_radial(self) -> tuple[Element, Element, Element]:
-        """
-        Calculate light radial distance.
+        """Calculate light radial distance.
 
         NOTE: The sensors we used for testing have the light intensity
         proportional to the resistance - in other words,

@@ -1,8 +1,10 @@
 """The test for lightmap svg access functions."""
 
-import pytest
-from homeassistant.components.lightmap.lightmap import LightMapSensor
 from unittest.mock import MagicMock
+
+import pytest
+
+from homeassistant.components.lightmap.lightmap import LightMapSensor
 from homeassistant.core import HomeAssistant
 
 SVG_PATH = "./tests/components/lightmap/Floorplan-2.svg"
@@ -41,7 +43,7 @@ def test_calculate_light_radial(mock_hass) -> None:
 
 @pytest.mark.parametrize("mock_sensor_value", [(4095)])
 def test_sensor_to_radius_conversion_happy(mock_hass) -> None:
-    """tests the radius calculation"""
+    """Tests the radius calculation"""
 
     living_room_svg_sensor = LightMapSensor(
         sensor_svg_id=SENSOR_SVG_ID,
