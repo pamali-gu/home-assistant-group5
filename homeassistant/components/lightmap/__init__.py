@@ -4,10 +4,13 @@ This component provides a custom visualization tool to display light readings
 from sensors using an SVG-based floorplan.
 """
 
-from homeassistant.core import HomeAssistant
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.helpers.event import async_track_state_change
 import logging
+
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.event import async_track_state_change
+from homeassistant.components.lightmap.lightmap import LightMapSensor
+
 
 DOMAIN = "lightmap"
 LOGGER = logging.getLogger(__name__)

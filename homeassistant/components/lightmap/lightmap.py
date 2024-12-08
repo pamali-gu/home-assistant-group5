@@ -14,6 +14,7 @@ from homeassistant.components.lightmap.svg_accessor import (
 )
 from lxml.etree import Element, SubElement
 from defusedxml.ElementTree import parse
+from homeassistant.core import HomeAssistant
 
 
 class InvalidSensorReading(Exception):
@@ -26,7 +27,7 @@ class LightMapSensor:
     """Class that tracks sensors in the SVG"""
 
     _sensor_svg_id: str
-    _sensor_reading: float
+    _hass: HomeAssistant
     _sensor_max: float
     _sensor_min: float
     _svg_path: str
@@ -43,16 +44,16 @@ class LightMapSensor:
     def __init__(
         self,
         sensor_svg_id: str,
-        sensor_reading: float,
         sensor_max: float,
         sensor_min: float,
         svg_containing_sensor_path: str,
+        hass: HomeAssistant,
     ):
         self._sensor_svg_id = sensor_svg_id
-        self._sensor_reading = sensor_reading
         self._sensor_max = sensor_max
         self._sensor_min = sensor_min
         self._svg_path = svg_containing_sensor_path
+        self._hass = hass
 
         self._MAX_RADIAL_RADIUS = self._sensor_max / self._RADIUS_CONSTANT
 
@@ -63,19 +64,6 @@ class LightMapSensor:
     def get_sensor_id(self) -> str:
         """Get the sensor id"""
         return self._sensor_id
-
-    def set_sensor_reading(self, sensor_reading: float) -> None:
-        """Set the sensor reading"""
-        if sensor_reading < self._sensor_min or sensor_reading > self._sensor_max:
-            raise InvalidSensorReading(
-                f"""Sensor reading is not within the defined limits:
-                {self._sensor_min}-{self._sensor_max}"""
-            )
-        self._sensor_reading = sensor_reading
-
-    def get_sensor_reading(self) -> float:
-        """Get the sensor reading"""
-        return self._sensor_reading
 
     def set_sensor_max(self, max: float):
         self._sensor_max = max
@@ -92,21 +80,30 @@ class LightMapSensor:
     def set_svg_containing_sensor_path(self, svg_path: str) -> None:
         self._svg_path = svg_path
 
-    def _convert_sensor_to_radius(self) -> float:
+    def _convert_sensor_to_radius(self, sensor_reading: float) -> float:
         """Convert sensor reading to corresponding radius values."""
         return self._MIN_RADIAL_RADIUS + (
-            (self._sensor_reading - self._sensor_min)
+            (sensor_reading - self._sensor_min)
             / (self._sensor_max - self._sensor_min)
             * (self._MAX_RADIAL_RADIUS - self._MIN_RADIAL_RADIUS)
         )
 
-    def _normalize_sensor_reading(self) -> float:
+    def _normalize_sensor_reading(self, sensor_reading: float) -> float:
         """
         Normalizes readings from the sensor
         """
-        return (self._sensor_reading - self._sensor_min) / (
+        return (sensor_reading - self._sensor_min) / (
             self._sensor_max - self._sensor_min
         )
+
+    def fetch_sensor_reading(self) -> float:
+        """Fetch the sensor reading from the state machine"""
+        sensor_reading = self._hass.states.get(self._sensor_svg_id)
+
+        if not sensor_reading:
+            raise ValueError(f"Sensor: {self._sensor_svg_id}, does not exist")
+
+        return float(sensor_reading)
 
     def _create_radial_gradient(
         self,
@@ -191,6 +188,7 @@ class LightMapSensor:
         proportional to the resistance - in other words,
         as light intensity increase, resistance increases.
         """
+        sensor_reading = self.fetch_sensor_reading()
         room_id = get_room_from_element(
             self._svg_path, self._sensor_svg_id
         )  # Get room to know what to edit
@@ -211,8 +209,10 @@ class LightMapSensor:
         overlapping_rect = self._create_overlapping_rectangle(room_rectangle_dimensions)
 
         # Create radial element
-        radius_val = self._convert_sensor_to_radius()
-        radial_firststop_opacity = self._normalize_sensor_reading() * self._MAX_OFFSET
+        radius_val = self._convert_sensor_to_radius(sensor_reading)
+        radial_firststop_opacity = (
+            self._normalize_sensor_reading(sensor_reading) * self._MAX_OFFSET
+        )
         radial_gradient = self._create_radial_gradient(
             sensor_x,
             x_translation,
