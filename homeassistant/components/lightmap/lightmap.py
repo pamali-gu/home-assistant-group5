@@ -14,6 +14,9 @@ from homeassistant.components.lightmap.svg_accessor import (
     get_translation_from_svg,
 )
 from homeassistant.core import HomeAssistant
+import logging
+
+LOGGER = logging.getLogger(__name__)
 
 
 class InvalidSensorReading(Exception):
@@ -97,10 +100,11 @@ class LightMapSensor:
         """Fetch the sensor reading from the state machine"""
         sensor_reading = self._hass.states.get(self._sensor_svg_id)
 
-        if not sensor_reading:
-            raise ValueError(f"Sensor: {self._sensor_svg_id}, does not exist")
+        if sensor_reading is None or sensor_reading.state in ["unavailable", "unknown"]:
+            LOGGER.error(f"Sensor: {self._sensor_svg_id}, sensor not available")
+            return 0.0
 
-        return float(sensor_reading)
+        return float(sensor_reading.state)
 
     def _create_radial_gradient(
         self,
@@ -216,6 +220,7 @@ class LightMapSensor:
         return room_parent_element, radial_gradient, overlapping_rect
 
     def update_lightmap(self):
+        """Updates the lightmap SVG by calling appropriate functions."""
         room_parent_element, radial_gradient, overlapping_rect = (
             self._calculate_light_radial()
         )

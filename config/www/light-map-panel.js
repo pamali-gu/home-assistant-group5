@@ -35,6 +35,20 @@ class LightMapPanel extends LitElement {
     }
   }
 
+  connectedCallback() {
+    super.connectedCallback();
+
+    this.hass.connection.subscribeEvents((event) => {
+      console.log(`Event: ${event}`)
+      this.handleLightmapUpdate(event.data.svg_path)
+    }, "lightmap_update_event")
+  }
+
+  handleLightmapUpdate(svg_path) {
+    // Access the SVG and render it.
+    alert(svg_path)
+  }
+
   updateLightSensors() {
     if (!this.mockTimerInitialized) {
       this.lightSensors = [
