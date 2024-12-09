@@ -5,14 +5,11 @@ default_config:
 frontend:
   themes: !include_dir_merge_named themes
 
-automation: !include automations.yaml
-script: !include scripts.yaml
-scene: !include scenes.yaml
-
 logger:
   default: info
   logs:
     homeassistant.components.cloud: debug
+    homeassistant.components.lightmap: debug
 
 panel_custom:
   - name: light-map-panel
@@ -26,13 +23,37 @@ panel_custom:
 sensor:
   - platform: template
     sensors:
-      test_sensor:
-        unique_id: "test_sensor_unique_id_1"
-        friendly_name: "Test Sensor"
-        unit_of_measurement: "lux"
-        value_template: "{{ 100 }}"
-      test_sensor_2:
-        unique_id: "test_sensor_unique_id_2"
-        friendly_name: "Test Sensor 2"
-        unit_of_measurement: "lux"
-        value_template: "{{ 3000 }}"
+      mock_light_sensor:
+        friendly_name: "mock_sensor_1"
+        unit_of_measurement: "Ω"
+        value_template: >
+          {% set time = now().hour %}
+          {% if time >= 6 and time < 18 %}
+            {{ range(500, 1000) | random }}
+          {% else %}
+            {{ range(0, 300) | random }}
+          {% endif %}
+mqtt:
+  sensor:
+    - name: "test_real_sensor_1"
+      state_topic: "home/test1"
+      unit_of_measurement: "Ω"
+      value_template: "{{ value | float }}"
+    - name: "test_real_sensor_2"
+      state_topic: "home/test2"
+      unit_of_measurement: "Ω"
+      value_template: "{{ value | float }}"
+
+automation:
+  - alias: Switch to real Sensor when MQTT is available
+    trigger:
+      - platform: state
+        entity_id: sensor.real_light_sensor
+        from: 'unavailable'
+    action:
+      - service: input_select.select_option
+        data:
+          entity_id: input_select.light_sensor_source
+          option: Real
+
+lightmap:
