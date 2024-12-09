@@ -51,7 +51,7 @@ mqtt:
       value_template: "{{ value | float }}"
     - name: "test_real_sensor_2"
       state_topic: "home/test2"
-      unit_of_measurement: "Ω"
+      unit_of_measurement: "lux"
       value_template: "{{ value | float }}"
 
 # automation:
