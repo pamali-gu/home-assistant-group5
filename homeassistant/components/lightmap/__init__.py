@@ -6,6 +6,7 @@ from sensors using an SVG-based floorplan.
 
 from __future__ import annotations
 
+import logging
 from typing import Protocol
 
 from homeassistant.components.media_source import (
@@ -25,6 +26,8 @@ from .const import (
     URI_SCHEME,
     URI_SCHEME_REGEX,
 )
+
+LOGGER = logging.getLogger(__name__)
 
 __all__ = [
     "DOMAIN",
@@ -63,6 +66,19 @@ def generate_media_source_id(domain: str, identifier: str) -> str:
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up the lightmap component."""
+    sensor_config_list = config.get("mqtt", {}).get("sensor")
+
+    sensor_ids = []
+    for sensor in sensor_config_list:
+        sensor_ids.append(f"sensor.{sensor["name"]}")
+
+    async def sensor_state_change(entity_id, old_state, new_state):
+        if new_state:
+            LOGGER.debug(f"sensor with id: {entity_id} has new reading: {new_state}")
+        else:
+            LOGGER.debug("no change")
+
+    hass.helpers.event.async_track_state_change(sensor_ids, sensor_state_change)
     hass.data[DOMAIN] = {}
     storage_handler.async_setup(hass)
     return True
