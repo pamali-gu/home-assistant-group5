@@ -48,6 +48,7 @@ sensor:
           {% else %}
             {{ range(0, 300) | random }}
           {% endif %}
+
 mqtt:
   sensor:
     - name: "test_real_sensor_1"
@@ -72,3 +73,4 @@ automation:
           option: Real
 
 lightmap:
+  gemini_api_key: !secret gemini_api_key
