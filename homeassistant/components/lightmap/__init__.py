@@ -5,10 +5,12 @@ from sensors using an SVG-based floorplan.
 """
 
 from __future__ import annotations
+import asyncio
 
 from datetime import timedelta
 import logging
 from typing import Protocol
+from pathlib import Path
 
 from homeassistant.components.media_source import (
     MediaSource,
@@ -25,6 +27,7 @@ import os
 
 DOMAIN = "lightmap"
 LOGGER = logging.getLogger(__name__)
+MEDIA_DIR = Path("config/media/")
 
 from . import storage_handler
 from .const import (
@@ -70,8 +73,9 @@ def generate_media_source_id(domain: str, identifier: str) -> str:
     return uri
 
 
-async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Setup the lightmap component"""
+def _initialize_lightmap(
+    hass: HomeAssistant, config: ConfigType, svg_path: str
+) -> None:
     # Check if SVG is stored. If not, then dont run the following code until it
     # is stored.
     sensor_config_list = config.get("mqtt", {}).get("sensor")
@@ -84,7 +88,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
                 sensor_max=4095,
                 sensor_min=0,
                 hass=hass,
-                svg_containing_sensor_path=SVG_PATH,  # Remove when have storage merged
+                svg_containing_sensor_path=svg_path,  # Remove when have storage merged
             ),
         )
 
@@ -95,9 +99,30 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         hass.bus.fire("lightmap_update_event", {"svg_path": "svg_path_string"})
         LOGGER.info("Lightmap update event has been fired")
 
-    async_track_time_interval(hass, periodic_lightmap_update, timedelta(seconds=60))
+    async_track_time_interval(hass, periodic_lightmap_update, timedelta(seconds=10))
 
-    hass.helpers.event.async_track_state_change(sensor_ids, sensor_state_change)
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Setup the lightmap component"""
     hass.data[DOMAIN] = {}
     storage_handler.async_setup(hass)
+
+    svg_files = await asyncio.to_thread(lambda: list(MEDIA_DIR.glob("*.svg")))
+    if svg_files:
+        # Accessing 'first' svg found because
+        # we assume only one svg exists when using lightmap
+        svg_file_path = str(svg_files[0])
+        _initialize_lightmap(hass, config, svg_file_path)
+    else:
+        LOGGER.info("No SVG found, watching for upload")
+
+        async def handle_svg_upload(event):
+            """Initialize lightmap when an SVG is uploaded"""
+            LOGGER.info("SVG uploaded, initializing lightmap")
+            svg_path = event.data.get("svg_path")
+            if svg_path:
+                _initialize_lightmap(hass, config, svg_path)
+
+        hass.bus.async_listen("svg_uploaded", handle_svg_upload)
+
     return True
