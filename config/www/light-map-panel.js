@@ -86,10 +86,22 @@ class LightMapPanel extends LitElement {
       return;
     }
 
-    const blob = new Blob([this.uploadedSVG], { type: "image/svg+xml" });
-    const formData = this.createFormData(blob);
+    try {
+      // Parse the SVG to ensure it is valid
+      const parser = new DOMParser();
+      const svgDoc = parser.parseFromString(this.uploadedSVG, "image/svg+xml");
+      const serializer = new XMLSerializer();
+      const serializedSVG = serializer.serializeToString(svgDoc);
 
-    this.uploadSVG(formData, "SVG Updated", "The SVG has been successfully updated with the new sensor placement.");
+      // Create the Blob from the properly serialized SVG
+      const blob = new Blob([serializedSVG], { type: "image/svg+xml" });
+
+      // Create FormData and upload
+      const formData = this.createFormData(blob);
+      this.uploadSVG(formData, "SVG Updated", "The SVG has been successfully updated with the new sensor placement.");
+    } catch (error) {
+      console.error("Error serializing SVG:", error);
+    }
   }
 
   createFormData(file, filename = "Floorplan.svg") {
