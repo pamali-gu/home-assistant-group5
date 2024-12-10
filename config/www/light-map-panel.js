@@ -30,41 +30,75 @@ class LightMapPanel extends LitElement {
   }
 
   updated(changedProperties) {
+    super.updated(changedProperties);
     if (changedProperties.has('hass')) {
       this.updateLightSensors();
     }
   }
 
   updateLightSensors() {
-    if (!this.mockTimerInitialized) {
-      this.lightSensors = [
-        { id: 'sensor.mock_sensor_1', name: 'Mock Sensor 1', state: '150' },
-        { id: 'sensor.mock_sensor_2', name: 'Mock Sensor 2', state: '200' },
-      ];
-      this.mockTimerInitialized = true;
-
-      setTimeout(() => {
-        this.lightSensors = [
-          { id: 'sensor.mock_sensor_1', name: 'Mock Sensor 1', state: '180' },
-          { id: 'sensor.mock_sensor_2', name: 'Mock Sensor 2', state: '250' },
-        ];
-      }, 60000);
+    if (!this.hass) {
+      console.error("hass is not defined");
+      return;
     }
+    const all_states = Object.values(this.hass.states);
+    this.lightSensors = all_states.filter((state) =>
+      state.entity_id.startsWith("sensor.") &&
+      (
+        state.attributes.device_class === "illuminance" ||
+        state.attributes.unit_of_measurement === "lux"
+      )
+    );
   }
 
   handleFileUpload(event) {
     const file = event.target.files[0];
+
+    if (!this.hass) {
+      console.error("hass is not defined");
+      return;
+    }
+
     if (file && file.type === "image/svg+xml") {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        this.uploadedSVG = e.target.result;
-        this.extractRoomIds();
-      };
-      reader.readAsText(file);
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("media_content_id", "media-source://lightmap/local/uploads/");
+
+      fetch("/api/lightmap/storage_handler/upload", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${this.hass.auth.data.access_token}`,
+        },
+        body: formData,
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then((data) => {
+          console.log("Upload successful:", data);
+          this.hass.callService("persistent_notification", "create", {
+            title: "Successful File Upload",
+            message: "SVG uploaded successfully!",
+          });
+        })
+        .catch((error) => {
+          console.error("Error uploading file:", error);
+          this.hass.callService("persistent_notification", "create", {
+            title: "File Upload Failed",
+            message: "Failed to upload the SVG file!",
+          });
+        });
     } else {
-      alert("Please upload a valid SVG file.");
+      this.hass.callService("persistent_notification", "create", {
+        title: "Invalid File",
+        message: "Please upload a valid SVG file.",
+      });
     }
   }
+
 
   extractRoomIds() {
     const parser = new DOMParser();
@@ -83,7 +117,7 @@ class LightMapPanel extends LitElement {
       return;
     }
     this.selectedSensor = sensor;
-    alert(`Selected sensor: ${sensor.name}`);
+    alert(`Selected sensor: ${sensor.attributes?.friendly_name}`);
   }
 
   isSensorAlreadyPlaced(sensorId) {
@@ -311,7 +345,7 @@ class LightMapPanel extends LitElement {
                       return html`
                         <li>
                           <a href="#" @click="${() => this.onSensorClick(sensor)}">
-                            <strong>${sensor.name}</strong>
+                            <strong>${sensor.attributes?.friendly_name}</strong>
                           </a>: ${sensor.state} lx
                           <span
                             style="display: inline-block; width: 12px; height: 12px; background-color: ${sensorColor}; margin-left: 8px; border: 1px solid #000;"
@@ -331,22 +365,23 @@ class LightMapPanel extends LitElement {
   static get styles() {
     return css`
       :host {
-        background-color: #fafafa;
+        background-color: var(--card-background-color, #fafafa);
         padding: 16px;
         display: block;
+        color: var(--primary-text-color, #000000);
       }
       .svg-container {
-        border: 1px solid #ccc;
+        border: 1px solid var(--divider-color, #ccc);
         padding: 16px;
-        background: white;
+        background: var(--card-background-color, white);
         max-width: 100%;
         overflow: auto;
       }
       .room-list,
       .sensor-list {
-        border: 1px solid #ccc;
+        border: 1px solid var(--divider-color, #ccc);
         padding: 16px;
-        background: white;
+        background: var(--card-background-color, white);
         max-width: 200px;
         height: fit-content;
         overflow: auto;
@@ -356,6 +391,7 @@ class LightMapPanel extends LitElement {
       }
     `;
   }
+
 }
 
 customElements.define("light-map-panel", LightMapPanel);
