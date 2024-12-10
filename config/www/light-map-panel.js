@@ -50,6 +50,29 @@ class LightMapPanel extends LitElement {
       )
     );
   }
+  UploadFromPath(filePath) {
+
+    // Fetch the file from the specified path
+    fetch(filePath)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Failed to load SVG file from path: ${filePath}`);
+        }
+      })
+      .then((svgContent) => {
+        this.uploadedSVG = svgContent;
+        localStorage.setItem("uploadedSVG", this.uploadedSVG);
+        this.extractRoomIds();
+        this.reuploadSVG();
+      })
+      .catch((error) => {
+        console.error("Error loading SVG:", error);
+        this.hass.callService("persistent_notification", "create", {
+          title: "File Load Error",
+          message: `Failed to load the SVG file: ${error.message}`,
+        });
+      });
+  }
 
   handleFileUpload(event) {
     const file = event.target.files[0];
@@ -319,12 +342,13 @@ class LightMapPanel extends LitElement {
         }
 
         const groupElement = svgDoc.createElementNS("http://www.w3.org/2000/svg", "g");
-        groupElement.setAttribute("transform", `translate(${sensor.x}, ${sensor.y})`);
-        groupElement.setAttribute("id", sensor.attributes?.unique_id);
+        // groupElement.setAttribute("transform", `translate(${}, ${sensor.y})`);
+        //groupElement.setAttribute("id", sensor.attributes?.unique_id);
 
         const circle = svgDoc.createElementNS("http://www.w3.org/2000/svg", "circle");
-        circle.setAttribute("cx", 0);
-        circle.setAttribute("cy", 0);
+        circle.setAttribute("id", sensor.attributes?.unique_id);
+        circle.setAttribute("cx", sensor.x);
+        circle.setAttribute("cy", sensor.y);
         circle.setAttribute("r", "2");
         circle.setAttribute("stroke", sensor.color);
         circle.setAttribute("stroke-width", "1");
@@ -333,13 +357,13 @@ class LightMapPanel extends LitElement {
         const wavyLine1 = svgDoc.createElementNS("http://www.w3.org/2000/svg", "path");
         wavyLine1.setAttribute("d", "M-1.5 0 Q-1 1, 0 0 Q1 -1, 1.5 0");
         wavyLine1.setAttribute("stroke", sensor.color);
-        wavyLine1.setAttribute("stroke-width", "1");
+        wavyLine1.setAttribute("stroke-width", "0.5");
         wavyLine1.setAttribute("fill", "none");
 
         const wavyLine2 = svgDoc.createElementNS("http://www.w3.org/2000/svg", "path");
         wavyLine2.setAttribute("d", "M-1.5 0.5 Q-1 1.5, 0 0.5 Q1 -0.5, 1.5 0.5");
         wavyLine2.setAttribute("stroke", sensor.color);
-        wavyLine2.setAttribute("stroke-width", "1");
+        wavyLine2.setAttribute("stroke-width", "0.5");
         wavyLine2.setAttribute("fill", "none");
 
         // Append elements to the group
@@ -380,9 +404,10 @@ class LightMapPanel extends LitElement {
     const svgDoc = parser.parseFromString(this.uploadedSVG, "image/svg+xml");
 
     //Find the group by the sensor ID
-    const groupElement = svgDoc.querySelector(`g[id="${sensor.attributes?.unique_id}"]`);
-    if (groupElement) {
-      groupElement.remove();
+    const element = svgDoc.querySelector(`circle[id="${sensor.attributes?.unique_id}"]`);
+    if (element && element.parentNode) {
+      const parent = element.parentNode;
+      parent.remove();
     }
 
     const serializer = new XMLSerializer();
