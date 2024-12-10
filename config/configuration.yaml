@@ -23,7 +23,7 @@ panel_custom:
 # Define media directories here
 homeassistant:
   media_dirs:
-    local: /workspaces/home-assistant-group5/config/media
+    local: config/media
 
 sensor:
   - platform: template
