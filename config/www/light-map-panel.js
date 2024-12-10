@@ -16,6 +16,9 @@ class LightMapPanel extends LitElement {
       lightSensors: { type: Array },
       selectedSensor: { type: Object },
       placedSensors: { type: Object },
+      chatHistory: { type: Array },
+      chatInput: { type: String },
+      isChatOpen: { type: Boolean, reflect: true },
     };
   }
 
@@ -27,6 +30,10 @@ class LightMapPanel extends LitElement {
     this.selectedSensor = null;
     this.placedSensors = {};
     this.mockTimerInitialized = false;
+    // Chat-related state
+    this.chatHistory = [];
+    this.chatInput = "";
+    this.isChatOpen = false;
   }
 
   updated(changedProperties) {
@@ -287,6 +294,34 @@ class LightMapPanel extends LitElement {
 
     this.requestUpdate();
   }
+  async sendMessageToAPI() {
+    try {
+      // Send the WebSocket request using hass.callWS
+      const data = await this.hass.callWS({
+        type: "light-map/plant-info", // The WebSocket message type
+        plant_name: this.chatInput, // Payload data
+      });
+      console.log(data);
+      // Handle the response from the WebSocket
+      const responseText = data || "No response received";
+
+      // Update chat history with the API response
+      this.chatHistory = [
+        ...this.chatHistory,
+        { user: true, text: this.chatInput },
+        { user: false, text: responseText["light_density"] },
+      ];
+
+      // Clear the input field
+      this.chatInput = "";
+    } catch (error) {
+      // Handle errors and notify the user
+      this.hass.callService("persistent_notification", "create", {
+        title: "Error occurred",
+        message: `Failed to fetch plant information via WebSocket: ${error.message}`,
+      });
+    }
+}
 
   render() {
     return html`
@@ -359,6 +394,34 @@ class LightMapPanel extends LitElement {
             : html`<p>No light sensors detected.</p>`}
         </div>
       </div>
+         <div class="chat-icon" @click="${this.toggleChat}">
+          ${this.isChatOpen
+      ? html`<i class="fas fa-times"></i>`
+      : html`<img src="/local/image/pm_logo.png" alt="Chat" class="icon" />`}
+      </div>
+
+      ${this.isChatOpen ? html`
+        <div class="chat-panel ${this.isChatOpen ? 'open' : 'closed'}">
+          <button class="close-button" @click="${this.toggleChat}">X</button>
+          <h3>Suggestions for Plant Placement</h3>
+          <div class="chat-history">
+            ${this.chatHistory.map(
+              (message) => html`
+                <p class="${message.user ? 'user-message' : 'bot-message'}">
+                  ${message.text}
+                </p>
+              `
+            )}
+          </div>
+          <input
+            type="text"
+            .value="${this.chatInput}"
+            @input="${(e) => (this.chatInput = e.target.value)}"
+            placeholder="Enter a plant name..."
+          />
+          <button @click="${() => this.sendMessageToAPI(this.chatInput)}">Send</button>
+        </div>
+      ` : null}
     `;
   }
 
@@ -388,6 +451,72 @@ class LightMapPanel extends LitElement {
       }
       ul {
         padding-left: 20px;
+      }
+      .chat-icon {
+        position: absolute;
+        bottom: 16px;
+        right: 16px;
+        padding: 8px;
+        border-radius: 50%;
+        cursor: pointer;
+        background-color: #ffffff;
+        font-size: 1.2rem;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 40px;
+        width: 40px;
+      }
+      .icon {
+        width: 100%;
+        height: 100%;
+        object-fit: contain; /* Ensures the image fits well */
+      }
+      .close-button {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+        background-color: var(--light-primary-color);
+      }
+      .chat-panel {
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        width: 300px;
+        height: 300px;
+        background-color: #fff;
+        box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.2);
+        transition: all 0.3s ease-in-out;
+      }
+      .chat-panel.open {
+        transform: translateY(0);
+      }
+      .chat-panel.closed {
+        transform: translateY(100%);
+      }
+       .chat-history {
+        max-height: 200px;
+        overflow-y: auto;
+        margin-bottom: 8px;
+        border: 1px solid #ccc;
+        padding: 8px;
+        background: #f9f9f9;
+      }
+      .user-message {
+        text-align: right;
+        color: blue;
+      }
+      .bot-message {
+        text-align: left;
+        color: green;
+      }
+      input {
+        width: calc(100% - 24px);
+        margin-bottom: 8px;
       }
     `;
   }
