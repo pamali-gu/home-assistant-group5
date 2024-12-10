@@ -18,7 +18,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
-from . import storage_handler
+from . import plant_placement, storage_handler
 from .const import (
     DOMAIN,
     MEDIA_CLASS_MAP,
@@ -26,6 +26,7 @@ from .const import (
     URI_SCHEME,
     URI_SCHEME_REGEX,
 )
+from .plant_placement import PlantInfoView
 
 LOGGER = logging.getLogger(__name__)
 
@@ -80,5 +81,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
     hass.helpers.event.async_track_state_change(sensor_ids, sensor_state_change)
     hass.data[DOMAIN] = {}
+    hass.http.register_view(PlantInfoView())
     storage_handler.async_setup(hass)
+    plant_placement.async_setup(hass, config)
     return True
