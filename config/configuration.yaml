@@ -20,6 +20,11 @@ panel_custom:
     config:
       hello: world
 
+# Define media directories here
+homeassistant:
+  media_dirs:
+    local: /workspaces/home-assistant-group5/config/media
+
 sensor:
   - platform: template
     sensors:
@@ -43,7 +48,6 @@ mqtt:
       state_topic: "home/test2"
       unit_of_measurement: "Ω"
       value_template: "{{ value | float }}"
-
 
 automation:
   - alias: Switch to real Sensor when MQTT is available

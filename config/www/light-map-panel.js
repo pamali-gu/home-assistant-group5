@@ -54,17 +54,52 @@ class LightMapPanel extends LitElement {
 
   handleFileUpload(event) {
     const file = event.target.files[0];
+
+    if (!this.hass) {
+      console.error("hass is not defined");
+      return;
+    }
+
     if (file && file.type === "image/svg+xml") {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        this.uploadedSVG = e.target.result;
-        this.extractRoomIds();
-      };
-      reader.readAsText(file);
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("media_content_id", "media-source://lightmap/local/uploads/");
+
+      fetch("/api/lightmap/storage_handler/upload", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${this.hass.auth.data.access_token}`,
+        },
+        body: formData,
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then((data) => {
+          console.log("Upload successful:", data);
+          this.hass.callService("persistent_notification", "create", {
+            title: "Successful File Upload",
+            message: "SVG uploaded successfully!",
+          });
+        })
+        .catch((error) => {
+          console.error("Error uploading file:", error);
+          this.hass.callService("persistent_notification", "create", {
+            title: "File Upload Failed",
+            message: "Failed to upload the SVG file!",
+          });
+        });
     } else {
-      alert("Please upload a valid SVG file.");
+      this.hass.callService("persistent_notification", "create", {
+        title: "Invalid File",
+        message: "Please upload a valid SVG file.",
+      });
     }
   }
+
 
   extractRoomIds() {
     const parser = new DOMParser();
