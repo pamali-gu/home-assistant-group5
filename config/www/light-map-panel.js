@@ -294,6 +294,11 @@ class LightMapPanel extends LitElement {
 
     this.requestUpdate();
   }
+
+  toggleChat() {
+    this.isChatOpen = !this.isChatOpen;
+  }
+
   async sendMessageToAPI() {
     try {
       // Send the WebSocket request using hass.callWS
@@ -483,11 +488,14 @@ class LightMapPanel extends LitElement {
         background-color: var(--light-primary-color);
       }
       .chat-panel {
+        border: 1px solid #ccc;
+        padding: 16px;
         position: absolute;
         bottom: 0;
         right: 0;
-        width: 300px;
+        max-width: 200px;
         height: 300px;
+        overflow: auto;
         background-color: #fff;
         box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.2);
         transition: all 0.3s ease-in-out;
