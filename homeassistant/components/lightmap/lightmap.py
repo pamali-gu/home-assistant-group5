@@ -4,6 +4,8 @@ This module handles the integration of sensors, updates SVG styling
 based on sensor values.
 """
 
+import logging
+
 from lxml.etree import Element, SubElement
 
 from homeassistant.components.lightmap.svg_accessor import (
@@ -14,7 +16,6 @@ from homeassistant.components.lightmap.svg_accessor import (
     get_translation_from_svg,
 )
 from homeassistant.core import HomeAssistant
-import logging
 
 LOGGER = logging.getLogger(__name__)
 
@@ -101,7 +102,7 @@ class LightMapSensor:
         sensor_reading = self._hass.states.get(self._sensor_svg_id)
 
         if sensor_reading is None or sensor_reading.state in ["unavailable", "unknown"]:
-            LOGGER.error(f"Sensor: {self._sensor_svg_id}, sensor not available")
+            LOGGER.error(f"Sensor: {self._sensor_svg_id}, unable to fetch readings.")
             return 0.0
 
         return float(sensor_reading.state)
@@ -188,6 +189,11 @@ class LightMapSensor:
         room_id = get_room_from_element(
             self._svg_path, self._sensor_svg_id
         )  # Get room to know what to edit
+        if room_id is None:
+            LOGGER.error(
+                f"Error, sensor with ID: {self._sensor_svg_id}, not found in SVG"
+            )
+            return
 
         sensor_x, sensor_y = get_element_coordinates(
             self._svg_path, self._sensor_svg_id
@@ -221,9 +227,12 @@ class LightMapSensor:
 
     def update_lightmap(self):
         """Updates the lightmap SVG by calling appropriate functions."""
-        room_parent_element, radial_gradient, overlapping_rect = (
-            self._calculate_light_radial()
-        )
+        radial_info = self._calculate_light_radial()
+
+        if radial_info is None:
+            return
+
+        room_parent_element, radial_gradient, overlapping_rect = radial_info
 
         self._add_lightmap_to_svg(
             room_parent_element, radial_gradient, overlapping_rect

@@ -44,6 +44,6 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         hass.bus.fire("lightmap_update_event", {"svg_path": "svg_path_string"})
         LOGGER.info("Lightmap update event has been fired")
 
-    async_track_time_interval(hass, periodic_lightmap_update, timedelta(seconds=5))
+    async_track_time_interval(hass, periodic_lightmap_update, timedelta(seconds=60))
 
     return True
