@@ -20,6 +20,11 @@ panel_custom:
     config:
       hello: world
 
+# Define media directories here
+homeassistant:
+  media_dirs:
+    local: /workspaces/home-assistant-group5/config/media
+
 sensor:
   - platform: template
     sensors:
@@ -54,16 +59,16 @@ mqtt:
       unit_of_measurement: "lux"
       value_template: "{{ value | float }}"
 
-# automation:
-#   - alias: Switch to real Sensor when MQTT is available
-#     trigger:
-#       - platform: state
-#         entity_id: sensor.real_light_sensor
-#         from: 'unavailable'
-#     action:
-#       - service: input_select.select_option
-#         data:
-#           entity_id: input_select.light_sensor_source
-#           option: Real
+automation:
+  - alias: Switch to real Sensor when MQTT is available
+    trigger:
+      - platform: state
+        entity_id: sensor.real_light_sensor
+        from: 'unavailable'
+    action:
+      - service: input_select.select_option
+        data:
+          entity_id: input_select.light_sensor_source
+          option: Real
 
 lightmap:
