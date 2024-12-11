@@ -19,6 +19,7 @@ class LightMapPanel extends LitElement {
       chatHistory: { type: Array },
       chatInput: { type: String },
       isChatOpen: { type: Boolean, reflect: true },
+      hasSubmitted: { type: Boolean, reflect: true },
     };
   }
 
@@ -34,6 +35,7 @@ class LightMapPanel extends LitElement {
     this.chatHistory = [];
     this.chatInput = "";
     this.isChatOpen = false;
+    this.hasSubmitted = false;
   }
 
   updated(changedProperties) {
@@ -438,12 +440,36 @@ class LightMapPanel extends LitElement {
       console.log(data);
       // Handle the response from the WebSocket
       const responseText = data || "No response received";
+      console.log(responseText["light_density"]);
+      const lightDensity = responseText["light_density"];
+      let sensorDetails = "";
+
+      if (Object.keys(lightDensity).length === 0) {
+        sensorDetails = "There are no proper sensors placed at the moment.";
+      } else {
+        // Collect friendly names of the sensors with their light density
+        const suggestions = Object.entries(lightDensity).map(
+          ([sensorId, density]) => {
+            const sensor = this.lightSensors.find(
+              (s) => s.entity_id === sensorId
+            );
+            const friendlyName = sensor
+              ? sensor.attributes?.friendly_name
+              : sensorId;
+            return `- ${friendlyName},`;
+          }
+        );
+
+        sensorDetails = `You can place plants near the following sensors:\n${suggestions.join(
+          "\n"
+        )}`;
+      }
 
       // Update chat history with the API response
       this.chatHistory = [
         ...this.chatHistory,
         { user: true, text: this.chatInput },
-        { user: false, text: responseText["light_density"] },
+        { user: false, text: sensorDetails },
       ];
 
       // Clear the input field
@@ -455,7 +481,7 @@ class LightMapPanel extends LitElement {
         message: `Failed to fetch plant information via WebSocket: ${error.message}`,
       });
     }
-}
+  }
 
   render() {
     return html`
@@ -534,28 +560,47 @@ class LightMapPanel extends LitElement {
       : html`<img src="/local/image/pm_logo.png" alt="Chat" class="icon" />`}
       </div>
 
-      ${this.isChatOpen ? html`
-        <div class="chat-panel ${this.isChatOpen ? 'open' : 'closed'}">
-          <button class="close-button" @click="${this.toggleChat}">X</button>
-          <h3>Suggestions for Plant Placement</h3>
-          <div class="chat-history">
-            ${this.chatHistory.map(
-              (message) => html`
-                <p class="${message.user ? 'user-message' : 'bot-message'}">
-                  ${message.text}
-                </p>
-              `
-            )}
-          </div>
-          <input
-            type="text"
-            .value="${this.chatInput}"
-            @input="${(e) => (this.chatInput = e.target.value)}"
-            placeholder="Enter a plant name..."
-          />
-          <button @click="${() => this.sendMessageToAPI(this.chatInput)}">Send</button>
-        </div>
-      ` : null}
+      ${this.isChatOpen
+        ? html`
+            <div class="chat-panel ${this.isChatOpen ? "open" : "closed"}">
+              <button class="close-button" @click="${this.toggleChat}">
+                X
+              </button>
+              <h3>Suggestions for Plant Placement</h3>
+              ${this.hasSubmitted
+                ? html`
+                    <div class="chat-history">
+                      ${this.chatHistory.map(
+                        (message) => html`
+                          <p
+                            class="${message.user
+                              ? "user-message"
+                              : "bot-message"}">
+                            ${message.text}
+                          </p>
+                        `
+                      )}
+                    </div>
+                  `
+                : null}
+              <input
+                type="text"
+                class="search-field"
+                .value="${this.chatInput}"
+                @input="${(e) => (this.chatInput = e.target.value)}"
+                placeholder="Enter a plant name..."
+              />
+              <button
+                class="send-button"
+                @click="${() => {
+                  this.sendMessageToAPI(this.chatInput);
+                  this.hasSubmitted = true;
+                }}">
+                Send
+              </button>
+            </div>
+          `
+        : null}
     `;
   }
 
@@ -614,7 +659,28 @@ class LightMapPanel extends LitElement {
         border: none;
         font-size: 16px;
         cursor: pointer;
-        background-color: var(--light-primary-color);
+        background-color: var(white, --card-background-color);
+      }
+      .send-button {
+        background-color: var(--primary-color, #007bff);
+        color: var(--button-text-color, white);
+        border: none;
+        padding: 12px 12px;
+        font-size: 14px;
+        border-radius: 4px;
+        cursor: pointer;
+        width: 60%;
+        float: right;
+        transition: background-color 0.3s ease, transform 0.2s ease;
+      }
+      .search-field {
+        width: 90%;
+        padding: 15px 12px;
+        font-size: 14px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        outline: none;
+        transition: border-color 0.3s ease, box-shadow 0.3s ease;
       }
       .chat-panel {
         border: 1px solid #ccc;
@@ -622,11 +688,12 @@ class LightMapPanel extends LitElement {
         position: absolute;
         bottom: 0;
         right: 0;
-        max-width: 200px;
-        height: 300px;
+        max-width: 300px;
+        height: fit-content;
         overflow: auto;
-        background-color: #fff;
+        background-color: var(--card-background-color, white);
         box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.2);
+        border-radius: 10px;
         transition: all 0.3s ease-in-out;
       }
       .chat-panel.open {
@@ -635,17 +702,17 @@ class LightMapPanel extends LitElement {
       .chat-panel.closed {
         transform: translateY(100%);
       }
-       .chat-history {
+      .chat-history {
         max-height: 200px;
         overflow-y: auto;
         margin-bottom: 8px;
         border: 1px solid #ccc;
         padding: 8px;
-        background: #f9f9f9;
+        background: var(--card-background-color, white);
       }
       .user-message {
         text-align: right;
-        color: blue;
+        color: var(--primary-color, #007bff);
       }
       .bot-message {
         text-align: left;
