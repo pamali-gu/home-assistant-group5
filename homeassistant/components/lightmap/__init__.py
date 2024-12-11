@@ -23,7 +23,7 @@ from homeassistant.helpers.typing import ConfigType
 from homeassistant.components.lightmap.lightmap import LightMapSensor
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.event import async_track_time_interval
-from homeassistant.components.lightmap.helpers import get_sensors
+from homeassistant.components.lightmap.helpers import get_sensors, get_sensor_range
 import os
 
 DOMAIN = "lightmap"
@@ -83,11 +83,12 @@ def _initialize_lightmap(
 
     lightmap_sensors = []
     for sensor in light_sensors:
+        max_reading, min_reading = get_sensor_range(hass, sensor)
         lightmap_sensors.append(
             LightMapSensor(
                 sensor_svg_id=sensor,
-                sensor_max=4095,
-                sensor_min=0,
+                sensor_max=max_reading,
+                sensor_min=min_reading,
                 hass=hass,
                 svg_containing_sensor_path=svg_path,  # Remove when have storage merged
             ),
