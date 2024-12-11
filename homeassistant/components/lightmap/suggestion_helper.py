@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import statistics
 
 from homeassistant.core import HomeAssistant
+from homeassistant.components.lightmap.helpers import get_sensors
 
 
 async def get_average_light_sensors(hass: HomeAssistant, hours=48) -> dict:
@@ -17,17 +18,8 @@ async def get_average_light_sensors(hass: HomeAssistant, hours=48) -> dict:
         dict of sensor average values over the period.
 
     """
-    all_states = hass.states.async_all()
 
-    light_sensors = [
-        state.entity_id
-        for state in all_states
-        if state.entity_id.startswith("sensor.")
-        and (
-            state.attributes.get("device_class") == "illuminance"
-            or state.attributes.get("unit_of_measurement") == "lux"
-        )
-    ]
+    light_sensors = get_sensors(hass)
 
     end_time = datetime.now()
     start_time = end_time - timedelta(hours=hours)
