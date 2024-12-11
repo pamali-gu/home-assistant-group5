@@ -29,7 +29,7 @@ sensor:
   - platform: template
     sensors:
       mock_light_sensor_1:
-        friendly_name: "mock_sensor_1"
+        friendly_name: "light_sensor_1"
         unit_of_measurement: "lux"
         attribute_templates:
           unique_id: "mock_light_1"
