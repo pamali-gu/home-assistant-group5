@@ -348,7 +348,7 @@ class LightMapPanel extends LitElement {
     for (const [roomId, sensors] of Object.entries(this.placedSensors)) {
       sensors.forEach((sensor) => {
 
-        const existingSensor = svgDoc.querySelector(`g[id="${sensor.attributes.unique_id}"]`);
+        const existingSensor = svgDoc.querySelector(`circle[id="${sensor.attributes.unique_id}"]`);
 
         // Skip rendering if the sensor already exists
         if (existingSensor) {
