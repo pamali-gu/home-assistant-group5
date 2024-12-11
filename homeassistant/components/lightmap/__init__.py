@@ -23,6 +23,7 @@ from homeassistant.helpers.typing import ConfigType
 from homeassistant.components.lightmap.lightmap import LightMapSensor
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.components.lightmap.helpers import get_sensors
 import os
 
 DOMAIN = "lightmap"
@@ -78,10 +79,10 @@ def _initialize_lightmap(
 ) -> None:
     # Check if SVG is stored. If not, then dont run the following code until it
     # is stored.
-    sensor_config_list = config.get("mqtt", {}).get("sensor")
+    light_sensors = get_sensors(hass)
 
     lightmap_sensors = []
-    for sensor in sensor_config_list:
+    for sensor in light_sensors:
         lightmap_sensors.append(
             LightMapSensor(
                 sensor_svg_id=f"sensor.{sensor["name"]}",
