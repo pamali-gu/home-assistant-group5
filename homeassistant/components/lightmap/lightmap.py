@@ -109,8 +109,7 @@ class LightMapSensor:
                         f"Sensor: {self._sensor_svg_id}, unable to fetch readings."
                     )
                     return 0.0
-                sensor_reading = float(sensor.state)
-
+                return float(sensor.state)
         return sensor_reading
 
     def _create_radial_gradient(
@@ -131,6 +130,7 @@ class LightMapSensor:
         radial_gradient.set("cy", str(sensor_y + y_translation))
         radial_gradient.set("fx", str(sensor_x + x_translation))
         radial_gradient.set("fy", str(sensor_y + y_translation))
+        LOGGER.info(f"RADIUS VAL: {radius_val}")
         radial_gradient.set("r", str(radius_val))
         radial_gradient.set("gradientTransfrom", "scale(1,1)")
         radial_gradient.set("gradientUnits", "userSpaceOnUse")
@@ -185,16 +185,13 @@ class LightMapSensor:
         rect_id = overlapping_rect.get("id")
         existing_rect = get_element(self._svg_path, rect_id)
         if existing_rect is None:
-            LOGGER.info("HERE NONE")
             room_element_parent.insert(room_index, overlapping_rect)
 
         radial_id = radial_gradient.get("id")
         existing_radial = get_element(self._svg_path, radial_id)
         if existing_radial is None:
-            LOGGER.info("HERE TWO NONE")
             root.append(radial_gradient)
         else:
-            LOGGER.info(existing_radial)
             for key, value in radial_gradient.attrib.items():
                 existing_radial.set(key, str(value))
         tree.write(self._svg_path)

@@ -6,6 +6,7 @@ from sensors using an SVG-based floorplan.
 
 from __future__ import annotations
 import asyncio
+import aiofiles
 
 from datetime import timedelta
 import logging
@@ -90,8 +91,8 @@ def _initialize_lightmap(
         lightmap_sensors.append(
             LightMapSensor(
                 sensor_svg_id=sensor,
-                sensor_max=0,
-                sensor_min=4095,
+                sensor_max=4095,
+                sensor_min=0,
                 hass=hass,
                 svg_containing_sensor_path=svg_path,  # Remove when have storage merged
             ),
@@ -101,10 +102,12 @@ def _initialize_lightmap(
         """Action for periodically updating the lightmap"""
         for sensor in lightmap_sensors:
             sensor.update_lightmap()
-        hass.bus.fire("lightmap_update_event", {"svg_path": "svg_path_string"})
+        async with aiofiles.open(svg_path, mode="r", encoding="utf-8") as svg_file:
+            svg_content = await svg_file.read()
+        hass.bus.fire("lightmap_update_event", {"svg": svg_content})
         LOGGER.info("Lightmap update event has been fired")
 
-    async_track_time_interval(hass, periodic_lightmap_update, timedelta(seconds=10))
+    async_track_time_interval(hass, periodic_lightmap_update, timedelta(seconds=30))
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
