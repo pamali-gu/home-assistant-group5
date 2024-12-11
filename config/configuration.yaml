@@ -33,46 +33,36 @@ sensor:
         unit_of_measurement: "lux"
         attribute_templates:
           unique_id: "mock_light_1"
-        value_template: "4095" 
+        value_template: "4095"
       mock_light_sensor_2:
         friendly_name: "light_sensor_2"
         unit_of_measurement: "lux"
         attribute_templates:
           unique_id: "mock_light_2"
-        value_template: "200" 
+        value_template: "200"
       mock_light_sensor_3:
         friendly_name: "light_sensor_3"
         unit_of_measurement: "lux"
         attribute_templates:
           unique_id: "mock_light_3"
-        value_template: "2098" 
+        value_template: "2098"
       mock_light_sensor_4:
         friendly_name: "light_sensor_4"
         unit_of_measurement: "lux"
         attribute_templates:
           unique_id: "mock_light_4"
-        value_template: "3123" 
-#mqtt:
-#  sensor:
-#    - name: "test_real_sensor_1"
-#      state_topic: "home/test1"
-#      unit_of_measurement: "lux"
-#      value_template: "{{ value | float }}"
-#    - name: "test_real_sensor_2"
-      #      state_topic: "home/test2"
-      #unit_of_measurement: "lux"
-      #value_template: "{{ value | float }}"
-
-#automation:
-  #  - alias: Switch to real Sensor when MQTT is available
-    #  trigger:
-#  - platform: state
-        #        entity_id: sensor.real_light_sensor
-        #from: 'unavailable'
-    #action:
-#  - service: input_select.select_option
-        #        data:
-#  entity_id: input_select.light_sensor_source
-#          option: Real
+        value_template: "3123"
+      mock_light_sensor_5:
+        friendly_name: "light_sensor_5"
+        unit_of_measurement: "lux"
+        attribute_templates:
+          unique_id: "mock_light_5"
+        value_template: "1427"
+      mock_light_sensor_6:
+        friendly_name: "light_sensor_6"
+        unit_of_measurement: "lux"
+        attribute_templates:
+          unique_id: "mock_light_6"
+        value_template: "2703"
 
 lightmap:
