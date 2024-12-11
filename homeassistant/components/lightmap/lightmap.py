@@ -16,6 +16,7 @@ from homeassistant.components.lightmap.svg_accessor import (
     get_translation_from_svg,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.components.lightmap.helpers import get_sensors
 
 LOGGER = logging.getLogger(__name__)
 
@@ -99,8 +100,11 @@ class LightMapSensor:
 
     def fetch_sensor_reading(self) -> float:
         """Fetch the sensor reading from the state machine"""
-        sensor_reading = self._hass.states.get(self._sensor_svg_id)
-
+        sensors = get_sensors(self._hass)
+        sensor_reading = 0.0
+        for sensor in sensors:
+            if sensor.attributes.get("unique_id") == self._sensor_svg_id:
+                sensor_reading = float(sensor.state)
         if sensor_reading is None or sensor_reading.state in ["unavailable", "unknown"]:
             LOGGER.error(f"Sensor: {self._sensor_svg_id}, unable to fetch readings.")
             return 0.0

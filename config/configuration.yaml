@@ -52,27 +52,27 @@ sensor:
           {% else %}
             {{ range(0, 300) | random }}
           {% endif %}
-mqtt:
-  sensor:
-    - name: "test_real_sensor_1"
-      state_topic: "home/test1"
-      unit_of_measurement: "lux"
-      value_template: "{{ value | float }}"
-    - name: "test_real_sensor_2"
-      state_topic: "home/test2"
-      unit_of_measurement: "lux"
-      value_template: "{{ value | float }}"
+#mqtt:
+#  sensor:
+#    - name: "test_real_sensor_1"
+#      state_topic: "home/test1"
+#      unit_of_measurement: "lux"
+#      value_template: "{{ value | float }}"
+#    - name: "test_real_sensor_2"
+      #      state_topic: "home/test2"
+      #unit_of_measurement: "lux"
+      #value_template: "{{ value | float }}"
 
-automation:
-  - alias: Switch to real Sensor when MQTT is available
-    trigger:
-      - platform: state
-        entity_id: sensor.real_light_sensor
-        from: 'unavailable'
-    action:
-      - service: input_select.select_option
-        data:
-          entity_id: input_select.light_sensor_source
-          option: Real
+#automation:
+  #  - alias: Switch to real Sensor when MQTT is available
+    #  trigger:
+#  - platform: state
+        #        entity_id: sensor.real_light_sensor
+        #from: 'unavailable'
+    #action:
+#  - service: input_select.select_option
+        #        data:
+#  entity_id: input_select.light_sensor_source
+#          option: Real
 
 lightmap:

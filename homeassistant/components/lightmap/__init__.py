@@ -23,7 +23,10 @@ from homeassistant.helpers.typing import ConfigType
 from homeassistant.components.lightmap.lightmap import LightMapSensor
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.event import async_track_time_interval
-from homeassistant.components.lightmap.helpers import get_sensors, get_sensor_range
+from homeassistant.components.lightmap.helpers import (
+    get_sensor_range,
+    get_sensor_unique_ids,
+)
 import os
 
 DOMAIN = "lightmap"
@@ -79,9 +82,10 @@ def _initialize_lightmap(
 ) -> None:
     # Check if SVG is stored. If not, then dont run the following code until it
     # is stored.
-    light_sensors = get_sensors(hass)
+    light_sensors = get_sensor_unique_ids(hass)
 
     lightmap_sensors = []
+    LOGGER.info(light_sensors)
     for sensor in light_sensors:
         lightmap_sensors.append(
             LightMapSensor(
