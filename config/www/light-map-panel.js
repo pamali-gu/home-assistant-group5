@@ -72,7 +72,6 @@ class LightMapPanel extends LitElement {
     }
 
     this.uploadedSVG = fileContent;
-    console.log(`fgvienraognerguierh uifawerhpf9uiweghpwerhfg ${this.uploadedSVG}`)
     localStorage.setItem("uploadedSVG", this.uploadedSVG);
     this.extractRoomIds();
     this.reuploadSVG()
@@ -398,12 +397,10 @@ class LightMapPanel extends LitElement {
   }
 
   removeSensor(roomId, sensorIndex, sensor) {
-    console.log(this.placedSensors);
     this.placedSensors[roomId].splice(sensorIndex, 1);
     if (this.placedSensors[roomId].length === 0) {
       delete this.placedSensors[roomId];
     }
-    console.log(this.placedSensors);
     localStorage.setItem("placedSensors", JSON.stringify(this.placedSensors));
 
     //Update the SVG to remove the group containing the sensor elements
@@ -415,6 +412,16 @@ class LightMapPanel extends LitElement {
     if (element && element.parentNode) {
       const parent = element.parentNode;
       parent.remove();
+    }
+
+    const radialElement = svgDoc.querySelector(`radialGradient[id="radial-${sensor.attributes?.unique_id}"]`);
+    if (radialElement) {
+      radialElement.remove();
+    }
+
+    const rectElement = svgDoc.querySelector(`rect[id="${sensor.attributes?.unique_id}-rect"]`);
+    if (rectElement) {
+      rectElement.remove();
     }
 
     const serializer = new XMLSerializer();
