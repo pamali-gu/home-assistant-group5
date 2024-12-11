@@ -33,25 +33,25 @@ sensor:
         unit_of_measurement: "lux"
         attribute_templates:
           unique_id: "mock_light_1"
-        value_template: >
-          {% set time = now().hour %}
-          {% if time >= 6 and time < 18 %}
-            {{ range(2000, 4095) | random }}
-          {% else %}
-            {{ range(0, 1999) | random }}
-          {% endif %}
+        value_template: "4095" 
       mock_light_sensor_2:
         friendly_name: "light_sensor_2"
         unit_of_measurement: "lux"
         attribute_templates:
           unique_id: "mock_light_2"
-        value_template: >
-          {% set time = now().hour %}
-          {% if time >= 6 and time < 18 %}
-            {{ range(500, 1000) | random }}
-          {% else %}
-            {{ range(0, 300) | random }}
-          {% endif %}
+        value_template: "200" 
+      mock_light_sensor_3:
+        friendly_name: "light_sensor_3"
+        unit_of_measurement: "lux"
+        attribute_templates:
+          unique_id: "mock_light_3"
+        value_template: "2098" 
+      mock_light_sensor_4:
+        friendly_name: "light_sensor_4"
+        unit_of_measurement: "lux"
+        attribute_templates:
+          unique_id: "mock_light_4"
+        value_template: "3123" 
 #mqtt:
 #  sensor:
 #    - name: "test_real_sensor_1"
