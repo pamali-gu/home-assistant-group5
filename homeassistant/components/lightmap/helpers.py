@@ -1,8 +1,10 @@
+"""Handles helper functions."""
+
 from homeassistant.core import HomeAssistant
 
 
 def get_sensors(hass: HomeAssistant) -> list:
-    """Function to retrieve all lightmap sensors"""
+    """Retrieve all lightmap sensors."""
     all_states = hass.states.async_all()
     return [
         state
@@ -16,7 +18,8 @@ def get_sensors(hass: HomeAssistant) -> list:
 
 
 def get_sensor_unique_ids(hass: HomeAssistant) -> list:
-    """Function to retrieve all unique IDs of the ligthmap sensor"""
+    """Retrieve all unique IDs of the ligthmap sensor."""
+
     all_states = hass.states.async_all()
     return [
         state.attributes.get("unique_id")

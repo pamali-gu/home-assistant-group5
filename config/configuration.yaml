@@ -25,6 +25,9 @@ homeassistant:
   media_dirs:
     local: config/media
 
+lightmap:
+  gemini_api_key: !secret gemini_api_key
+
 sensor:
   - platform: template
     sensors:
@@ -33,51 +36,31 @@ sensor:
         unit_of_measurement: "lux"
         attribute_templates:
           unique_id: "mock_light_1"
-          min_value: 50
-          max_value: 100
-        value_template: >
-          {% set time = now().hour %}
-          {% if time >= 6 and time < 18 %}
-            {{ range(2000, 4095) | random }}
-          {% else %}
-            {{ range(0, 1999) | random }}
-          {% endif %}
+          min_value: 0
+          max_value: 300
+        value_template: "4095"
       mock_light_sensor_2:
         friendly_name: "light_sensor_2"
         unit_of_measurement: "lux"
         attribute_templates:
           unique_id: "mock_light_2"
+          min_value: 300
+          max_value: 800
+        value_template: "200"
+      mock_light_sensor_3:
+        friendly_name: "light_sensor_3"
+        unit_of_measurement: "lux"
+        attribute_templates:
+          unique_id: "mock_light_3"
+          min_value: 50
+          max_value: 1000
+        value_template: "2098"
+      mock_light_sensor_4:
+        friendly_name: "light_sensor_4"
+        unit_of_measurement: "lux"
+        attribute_templates:
+          unique_id: "mock_light_4"
           min_value: 0
-          max_value: 300
-        value_template: >
-          {% set time = now().hour %}
-          {% if time >= 6 and time < 18 %}
-            {{ range(500, 1000) | random }}
-          {% else %}
-            {{ range(0, 300) | random }}
-          {% endif %}
-#mqtt:
-#  sensor:
-#    - name: "test_real_sensor_1"
-#      state_topic: "home/test1"
-#      unit_of_measurement: "lux"
-#      value_template: "{{ value | float }}"
-#    - name: "test_real_sensor_2"
-      #      state_topic: "home/test2"
-      #unit_of_measurement: "lux"
-      #value_template: "{{ value | float }}"
+          max_value: 600
+        value_template: "3123"
 
-#automation:
-  #  - alias: Switch to real Sensor when MQTT is available
-    #  trigger:
-#  - platform: state
-        #        entity_id: sensor.real_light_sensor
-        #from: 'unavailable'
-    #action:
-#  - service: input_select.select_option
-        #        data:
-#  entity_id: input_select.light_sensor_source
-#          option: Real
-
-lightmap:
-  gemini_api_key: !secret gemini_api_key
