@@ -36,7 +36,7 @@ class LightMapPanel extends LitElement {
     }
   }
 
-  connectedCallback() {
+    connectedCallback() {
     super.connectedCallback();
 
     this.hass.connection.subscribeEvents((event) => {
@@ -47,8 +47,9 @@ class LightMapPanel extends LitElement {
 
   handleLightmapUpdate(svg_path) {
     // Access the SVG and render it.
-    alert(svg_path)
+    UploadFromPath(svg_path)
   }
+
 
   updateLightSensors() {
     if (!this.hass) {

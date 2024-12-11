@@ -36,9 +36,9 @@ sensor:
         value_template: >
           {% set time = now().hour %}
           {% if time >= 6 and time < 18 %}
-            {{ range(500, 1000) | random }}
+            {{ range(2000, 4095) | random }}
           {% else %}
-            {{ range(0, 300) | random }}
+            {{ range(0, 1999) | random }}
           {% endif %}
       mock_light_sensor_2:
         friendly_name: "light_sensor_2"

@@ -104,12 +104,14 @@ class LightMapSensor:
         sensor_reading = 0.0
         for sensor in sensors:
             if sensor.attributes.get("unique_id") == self._sensor_svg_id:
+                if sensor.state is None or sensor.state in ["unavailable", "unknown"]:
+                    LOGGER.error(
+                        f"Sensor: {self._sensor_svg_id}, unable to fetch readings."
+                    )
+                    return 0.0
                 sensor_reading = float(sensor.state)
-        if sensor_reading is None or sensor_reading.state in ["unavailable", "unknown"]:
-            LOGGER.error(f"Sensor: {self._sensor_svg_id}, unable to fetch readings.")
-            return 0.0
 
-        return float(sensor_reading.state)
+        return sensor_reading
 
     def _create_radial_gradient(
         self,
@@ -157,6 +159,7 @@ class LightMapSensor:
         rect_params = {
             **room_rectangle_dimensions,
             "style": f"fill:url(#radial-{self._sensor_svg_id});fill-opacity:1;fill-rule:nonzero;stroke:#000000;stroke-width:4.17796;stroke-dasharray:none;stroke-opacity:0;paint-order:stroke markers fill",
+            "id": f"{self._sensor_svg_id}-rect",
         }
 
         new_rectangle = Element("rect")
@@ -176,10 +179,24 @@ class LightMapSensor:
         room_element_parent = room_parent_element.getparent()
         room_index = room_element_parent.index(room_parent_element)
         # Put new rectangle on top of old rectangle.
-        room_element_parent.insert(room_index, overlapping_rect)
         tree = room_element_parent.getroottree()
         root = tree.getroot()
-        root.append(radial_gradient)
+
+        rect_id = overlapping_rect.get("id")
+        existing_rect = get_element(self._svg_path, rect_id)
+        if existing_rect is None:
+            LOGGER.info("HERE NONE")
+            room_element_parent.insert(room_index, overlapping_rect)
+
+        radial_id = radial_gradient.get("id")
+        existing_radial = get_element(self._svg_path, radial_id)
+        if existing_radial is None:
+            LOGGER.info("HERE TWO NONE")
+            root.append(radial_gradient)
+        else:
+            LOGGER.info(existing_radial)
+            for key, value in radial_gradient.attrib.items():
+                existing_radial.set(key, str(value))
         tree.write(self._svg_path)
 
     def _calculate_light_radial(self) -> tuple[Element, Element, Element]:
