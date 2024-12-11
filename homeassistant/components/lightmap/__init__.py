@@ -85,7 +85,7 @@ def _initialize_lightmap(
     for sensor in light_sensors:
         lightmap_sensors.append(
             LightMapSensor(
-                sensor_svg_id=f"sensor.{sensor["name"]}",
+                sensor_svg_id=sensor,
                 sensor_max=4095,
                 sensor_min=0,
                 hass=hass,
