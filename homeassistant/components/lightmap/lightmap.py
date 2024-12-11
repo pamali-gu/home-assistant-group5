@@ -1,19 +1,24 @@
-"""
-Core logic for the Lightmap component.
+"""Core logic for the Lightmap component.
 
 This module handles the integration of sensors, updates SVG styling
 based on sensor values.
 """
 
+import logging
+
+from lxml.etree import Element, SubElement
+
 from homeassistant.components.lightmap.svg_accessor import (
-    get_room_from_element,
-    get_element_coordinates,
     get_element,
+    get_element_coordinates,
+    get_room_from_element,
     get_room_rect_dimensions,
     get_translation_from_svg,
 )
-from lxml.etree import Element, SubElement
-from defusedxml.ElementTree import parse
+from homeassistant.core import HomeAssistant
+from homeassistant.components.lightmap.helpers import get_sensors
+
+LOGGER = logging.getLogger(__name__)
 
 
 class InvalidSensorReading(Exception):
@@ -26,7 +31,7 @@ class LightMapSensor:
     """Class that tracks sensors in the SVG"""
 
     _sensor_svg_id: str
-    _sensor_reading: float
+    _hass: HomeAssistant
     _sensor_max: float
     _sensor_min: float
     _svg_path: str
@@ -43,16 +48,16 @@ class LightMapSensor:
     def __init__(
         self,
         sensor_svg_id: str,
-        sensor_reading: float,
         sensor_max: float,
         sensor_min: float,
-        svg_containing_sensor_path: str,
+        hass: HomeAssistant,
+        svg_containing_sensor_path: str = None,
     ):
         self._sensor_svg_id = sensor_svg_id
-        self._sensor_reading = sensor_reading
         self._sensor_max = sensor_max
         self._sensor_min = sensor_min
         self._svg_path = svg_containing_sensor_path
+        self._hass = hass
 
         self._MAX_RADIAL_RADIUS = self._sensor_max / self._RADIUS_CONSTANT
 
@@ -63,19 +68,6 @@ class LightMapSensor:
     def get_sensor_id(self) -> str:
         """Get the sensor id"""
         return self._sensor_id
-
-    def set_sensor_reading(self, sensor_reading: float) -> None:
-        """Set the sensor reading"""
-        if sensor_reading < self._sensor_min or sensor_reading > self._sensor_max:
-            raise InvalidSensorReading(
-                f"""Sensor reading is not within the defined limits:
-                {self._sensor_min}-{self._sensor_max}"""
-            )
-        self._sensor_reading = sensor_reading
-
-    def get_sensor_reading(self) -> float:
-        """Get the sensor reading"""
-        return self._sensor_reading
 
     def set_sensor_max(self, max: float):
         self._sensor_max = max
@@ -92,21 +84,33 @@ class LightMapSensor:
     def set_svg_containing_sensor_path(self, svg_path: str) -> None:
         self._svg_path = svg_path
 
-    def _convert_sensor_to_radius(self) -> float:
+    def _convert_sensor_to_radius(self, sensor_reading: float) -> float:
         """Convert sensor reading to corresponding radius values."""
         return self._MIN_RADIAL_RADIUS + (
-            (self._sensor_reading - self._sensor_min)
+            (sensor_reading - self._sensor_min)
             / (self._sensor_max - self._sensor_min)
             * (self._MAX_RADIAL_RADIUS - self._MIN_RADIAL_RADIUS)
         )
 
-    def _normalize_sensor_reading(self) -> float:
-        """
-        Normalizes readings from the sensor
-        """
-        return (self._sensor_reading - self._sensor_min) / (
+    def _normalize_sensor_reading(self, sensor_reading: float) -> float:
+        """Normalizes readings from the sensor"""
+        return (sensor_reading - self._sensor_min) / (
             self._sensor_max - self._sensor_min
         )
+
+    def fetch_sensor_reading(self) -> float:
+        """Fetch the sensor reading from the state machine"""
+        sensors = get_sensors(self._hass)
+        sensor_reading = 0.0
+        for sensor in sensors:
+            if sensor.attributes.get("unique_id") == self._sensor_svg_id:
+                if sensor.state is None or sensor.state in ["unavailable", "unknown"]:
+                    LOGGER.error(
+                        f"Sensor: {self._sensor_svg_id}, unable to fetch readings."
+                    )
+                    return 0.0
+                return float(sensor.state)
+        return sensor_reading
 
     def _create_radial_gradient(
         self,
@@ -117,8 +121,7 @@ class LightMapSensor:
         radius_val: float,
         radial_firststop_opacity: float,
     ) -> Element:
-        """
-        Creates the radial gradient element and its corresponding
+        """Creates the radial gradient element and its corresponding
         stops.
         """
         radial_gradient = Element("radialGradient")
@@ -127,6 +130,7 @@ class LightMapSensor:
         radial_gradient.set("cy", str(sensor_y + y_translation))
         radial_gradient.set("fx", str(sensor_x + x_translation))
         radial_gradient.set("fy", str(sensor_y + y_translation))
+        LOGGER.info(f"RADIUS VAL: {radius_val}")
         radial_gradient.set("r", str(radius_val))
         radial_gradient.set("gradientTransfrom", "scale(1,1)")
         radial_gradient.set("gradientUnits", "userSpaceOnUse")
@@ -135,7 +139,7 @@ class LightMapSensor:
         first_gradient_stop.set("offset", "0%")
         first_gradient_stop.set(
             "style",
-            f"stop-color:rgba(255,255,10,1);stop-opacity:{str(radial_firststop_opacity)}",
+            f"stop-color:rgba(255,255,10,1);stop-opacity:{radial_firststop_opacity!s}",
         )
         first_gradient_stop.set("id", f"{radial_gradient.attrib.get("id")}-stop-1")
 
@@ -149,13 +153,13 @@ class LightMapSensor:
         return radial_gradient
 
     def _create_overlapping_rectangle(self, room_rectangle_dimensions: dict) -> Element:
-        """
-        Creates a new rectangle that will
+        """Creates a new rectangle that will
         overlap the room and contain the radial gradient
         """
         rect_params = {
             **room_rectangle_dimensions,
             "style": f"fill:url(#radial-{self._sensor_svg_id});fill-opacity:1;fill-rule:nonzero;stroke:#000000;stroke-width:4.17796;stroke-dasharray:none;stroke-opacity:0;paint-order:stroke markers fill",
+            "id": f"{self._sensor_svg_id}-rect",
         }
 
         new_rectangle = Element("rect")
@@ -171,29 +175,43 @@ class LightMapSensor:
         radial_gradient: Element,
         overlapping_rect: Element,
     ):
-        """
-        Adds the lightmap adjustments to the svg
-        """
+        """Adds the lightmap adjustments to the svg"""
         room_element_parent = room_parent_element.getparent()
         room_index = room_element_parent.index(room_parent_element)
         # Put new rectangle on top of old rectangle.
-        room_element_parent.insert(room_index, overlapping_rect)
         tree = room_element_parent.getroottree()
         root = tree.getroot()
-        root.append(radial_gradient)
+
+        rect_id = overlapping_rect.get("id")
+        existing_rect = get_element(self._svg_path, rect_id)
+        if existing_rect is None:
+            room_element_parent.insert(room_index, overlapping_rect)
+
+        radial_id = radial_gradient.get("id")
+        existing_radial = get_element(self._svg_path, radial_id)
+        if existing_radial is None:
+            root.append(radial_gradient)
+        else:
+            for key, value in radial_gradient.attrib.items():
+                existing_radial.set(key, str(value))
         tree.write(self._svg_path)
 
-    def calculate_light_radial(self):
-        """
-        Calculate light radial distance.
+    def _calculate_light_radial(self) -> tuple[Element, Element, Element]:
+        """Calculate light radial distance.
 
         NOTE: The sensors we used for testing have the light intensity
         proportional to the resistance - in other words,
         as light intensity increase, resistance increases.
         """
+        sensor_reading = self.fetch_sensor_reading()
         room_id = get_room_from_element(
             self._svg_path, self._sensor_svg_id
         )  # Get room to know what to edit
+        if room_id is None:
+            LOGGER.error(
+                f"Error, sensor with ID: {self._sensor_svg_id}, not found in SVG"
+            )
+            return
 
         sensor_x, sensor_y = get_element_coordinates(
             self._svg_path, self._sensor_svg_id
@@ -211,8 +229,10 @@ class LightMapSensor:
         overlapping_rect = self._create_overlapping_rectangle(room_rectangle_dimensions)
 
         # Create radial element
-        radius_val = self._convert_sensor_to_radius()
-        radial_firststop_opacity = self._normalize_sensor_reading() * self._MAX_OFFSET
+        radius_val = self._convert_sensor_to_radius(sensor_reading)
+        radial_firststop_opacity = (
+            self._normalize_sensor_reading(sensor_reading) * self._MAX_OFFSET
+        )
         radial_gradient = self._create_radial_gradient(
             sensor_x,
             x_translation,
@@ -221,6 +241,16 @@ class LightMapSensor:
             radius_val,
             radial_firststop_opacity,
         )
+        return room_parent_element, radial_gradient, overlapping_rect
+
+    def update_lightmap(self):
+        """Updates the lightmap SVG by calling appropriate functions."""
+        radial_info = self._calculate_light_radial()
+
+        if radial_info is None:
+            return
+
+        room_parent_element, radial_gradient, overlapping_rect = radial_info
 
         self._add_lightmap_to_svg(
             room_parent_element, radial_gradient, overlapping_rect

@@ -139,6 +139,16 @@ class UploadSVGImageView(http.HomeAssistantView):
             LOGGER.error("Moving upload failed: %s", err)
             raise web.HTTPBadRequest from err
 
+        # Fire an event that the SVG has been successfully uploaded
+        self.hass.bus.fire(
+            "svg_uploaded",
+            {
+                "svg_path": str(
+                    self.source.async_full_path(source_dir_id, location)
+                    / uploaded_file.filename
+                )
+            },
+        )
         return self.json(
             {"media_content_id": f"{data['media_content_id']}/{uploaded_file.filename}"}
         )

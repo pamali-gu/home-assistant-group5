@@ -6,9 +6,20 @@ from sensors using an SVG-based floorplan.
 
 from __future__ import annotations
 
+import asyncio
+from datetime import timedelta
 import logging
+import os
+from pathlib import Path
 from typing import Protocol
 
+import aiofiles
+
+from homeassistant.components.lightmap.helpers import (
+    get_sensor_range,
+    get_sensor_unique_ids,
+)
+from homeassistant.components.lightmap.lightmap import LightMapSensor
 from homeassistant.components.media_source import (
     MediaSource,
     MediaSourceError,
@@ -16,7 +27,12 @@ from homeassistant.components.media_source import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.typing import ConfigType
+
+DOMAIN = "lightmap"
+LOGGER = logging.getLogger(__name__)
+MEDIA_DIR = Path("config/media/")
 
 from . import plant_placement, storage_handler
 from .const import (
@@ -28,8 +44,6 @@ from .const import (
 )
 from .plant_placement import PlantInfoView
 
-LOGGER = logging.getLogger(__name__)
-
 __all__ = [
     "DOMAIN",
     "is_media_source_id",
@@ -40,7 +54,6 @@ __all__ = [
     "MEDIA_CLASS_MAP",
     "MEDIA_MIME_TYPES",
 ]
-
 
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 
@@ -65,23 +78,61 @@ def generate_media_source_id(domain: str, identifier: str) -> str:
     return uri
 
 
+def _initialize_lightmap(
+    hass: HomeAssistant, config: ConfigType, svg_path: str
+) -> None:
+    # Check if SVG is stored. If not, then dont run the following code until it
+    # is stored.
+    light_sensors = get_sensor_unique_ids(hass)
+
+    lightmap_sensors = []
+    LOGGER.info(light_sensors)
+    for sensor in light_sensors:
+        lightmap_sensors.append(
+            LightMapSensor(
+                sensor_svg_id=sensor,
+                sensor_max=4095,
+                sensor_min=0,
+                hass=hass,
+                svg_containing_sensor_path=svg_path,  # Remove when have storage merged
+            ),
+        )
+
+    async def periodic_lightmap_update(_now):
+        """Action for periodically updating the lightmap."""
+        for sensor in lightmap_sensors:
+            sensor.update_lightmap()
+        async with aiofiles.open(svg_path, encoding="utf-8") as svg_file:
+            svg_content = await svg_file.read()
+        hass.bus.fire("lightmap_update_event", {"svg": svg_content})
+        LOGGER.info("Lightmap update event has been fired")
+
+    async_track_time_interval(hass, periodic_lightmap_update, timedelta(seconds=30))
+
+
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Set up the lightmap component."""
-    sensor_config_list = config.get("mqtt", {}).get("sensor")
-
-    sensor_ids = []
-    for sensor in sensor_config_list:
-        sensor_ids.append(f"sensor.{sensor["name"]}")
-
-    async def sensor_state_change(entity_id, old_state, new_state):
-        if new_state:
-            LOGGER.debug(f"sensor with id: {entity_id} has new reading: {new_state}")
-        else:
-            LOGGER.debug("no change")
-
-    hass.helpers.event.async_track_state_change(sensor_ids, sensor_state_change)
+    """Setup the lightmap component."""
     hass.data[DOMAIN] = {}
     hass.http.register_view(PlantInfoView())
     storage_handler.async_setup(hass)
     plant_placement.async_setup(hass, config)
+
+    svg_files = await asyncio.to_thread(lambda: list(MEDIA_DIR.glob("*.svg")))
+    if svg_files:
+        # Accessing 'first' svg found because
+        # we assume only one svg exists when using lightmap
+        svg_file_path = str(svg_files[0])
+        _initialize_lightmap(hass, config, svg_file_path)
+    else:
+        LOGGER.info("No SVG found, watching for upload")
+
+        async def handle_svg_upload(event):
+            """Initialize lightmap when an SVG is uploaded"""
+            LOGGER.info("SVG uploaded, initializing lightmap")
+            svg_path = event.data.get("svg_path")
+            if svg_path:
+                _initialize_lightmap(hass, config, svg_path)
+
+        hass.bus.async_listen("svg_uploaded", handle_svg_upload)
+
     return True

@@ -92,6 +92,9 @@ def get_room_rect_dimensions(room_parent_element: Element) -> RoomDimensions | N
     Returns:
         A dict containing dimension information of the rectangle element.
     """
+    if room_parent_element is None:
+        return None
+
     rect = room_parent_element.find("svg:rect", {"svg": "http://www.w3.org/2000/svg"})
 
     if rect is None:

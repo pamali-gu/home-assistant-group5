@@ -23,7 +23,7 @@ panel_custom:
 # Define media directories here
 homeassistant:
   media_dirs:
-    local: /workspaces/home-assistant-group5/config/media
+    local: config/media
 
 sensor:
   - platform: template
@@ -38,9 +38,9 @@ sensor:
         value_template: >
           {% set time = now().hour %}
           {% if time >= 6 and time < 18 %}
-            {{ range(500, 1000) | random }}
+            {{ range(2000, 4095) | random }}
           {% else %}
-            {{ range(0, 300) | random }}
+            {{ range(0, 1999) | random }}
           {% endif %}
       mock_light_sensor_2:
         friendly_name: "light_sensor_2"
@@ -56,29 +56,28 @@ sensor:
           {% else %}
             {{ range(0, 300) | random }}
           {% endif %}
+#mqtt:
+#  sensor:
+#    - name: "test_real_sensor_1"
+#      state_topic: "home/test1"
+#      unit_of_measurement: "lux"
+#      value_template: "{{ value | float }}"
+#    - name: "test_real_sensor_2"
+      #      state_topic: "home/test2"
+      #unit_of_measurement: "lux"
+      #value_template: "{{ value | float }}"
 
-mqtt:
-  sensor:
-    - name: "test_real_sensor_1"
-      state_topic: "home/test1"
-      unit_of_measurement: "lux"
-      value_template: "{{ value | float }}"
-    - name: "test_real_sensor_2"
-      state_topic: "home/test2"
-      unit_of_measurement: "lux"
-      value_template: "{{ value | float }}"
-
-automation:
-  - alias: Switch to real Sensor when MQTT is available
-    trigger:
-      - platform: state
-        entity_id: sensor.real_light_sensor
-        from: 'unavailable'
-    action:
-      - service: input_select.select_option
-        data:
-          entity_id: input_select.light_sensor_source
-          option: Real
+#automation:
+  #  - alias: Switch to real Sensor when MQTT is available
+    #  trigger:
+#  - platform: state
+        #        entity_id: sensor.real_light_sensor
+        #from: 'unavailable'
+    #action:
+#  - service: input_select.select_option
+        #        data:
+#  entity_id: input_select.light_sensor_source
+#          option: Real
 
 lightmap:
   gemini_api_key: !secret gemini_api_key
