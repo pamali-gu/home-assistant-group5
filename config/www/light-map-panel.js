@@ -50,29 +50,31 @@ class LightMapPanel extends LitElement {
       )
     );
   }
-  UploadFromPath(filePath) {
 
-    // Fetch the file from the specified path
-    fetch(filePath)
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`Failed to load SVG file from path: ${filePath}`);
-        }
-      })
-      .then((svgContent) => {
-        this.uploadedSVG = svgContent;
-        localStorage.setItem("uploadedSVG", this.uploadedSVG);
-        this.extractRoomIds();
-        this.reuploadSVG();
-      })
-      .catch((error) => {
-        console.error("Error loading SVG:", error);
-        this.hass.callService("persistent_notification", "create", {
-          title: "File Load Error",
-          message: `Failed to load the SVG file: ${error.message}`,
-        });
-      });
+ UploadFromPath(fileContent) {
+    if (!this.hass) {
+      console.error("hass is not defined");
+      return;
+    }
+
+    // Check if the content is a valid SVG
+    if (!fileContent.endsWith("</svg>")) {
+      throw new Error("Invalid SVG content");
+    }
+
+    this.uploadedSVG = fileContent;
+    console.log(`fgvienraognerguierh uifawerhpf9uiweghpwerhfg ${this.uploadedSVG}`)
+    localStorage.setItem("uploadedSVG", this.uploadedSVG);
+    this.extractRoomIds();
+    this.reuploadSVG()
+    this.requestUpdate();
   }
+  handleLightmapUpdate(svg_data) {
+    // Access the SVG and render it.
+    this.UploadFromPath(svg_data)
+  }
+
+
 
   handleFileUpload(event) {
     const file = event.target.files[0];
@@ -130,7 +132,7 @@ class LightMapPanel extends LitElement {
   createFormData(file, filename = "Floorplan.svg") {
     const formData = new FormData();
     formData.append("file", file, filename);
-    formData.append("media_content_id", "media-source://lightmap/local/uploads/");
+    formData.append("media_content_id", "media-source://lightmap/local/uploads");
     return formData;
   }
 
@@ -147,13 +149,6 @@ class LightMapPanel extends LitElement {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         return response.json();
-      })
-      .then((data) => {
-        console.log("SVG upload successful:", data);
-        this.hass.callService("persistent_notification", "create", {
-          title: successTitle,
-          message: successMessage,
-        });
       })
       .catch((error) => {
         console.error("Error uploading SVG:", error);
@@ -182,6 +177,9 @@ class LightMapPanel extends LitElement {
     if (savedPlacedSensors) {
       this.placedSensors = JSON.parse(savedPlacedSensors);
     }
+    this.hass.connection.subscribeEvents(event => {
+      this.handleLightmapUpdate(event.data.svg)
+    }, "lightmap_update_event")
   }
 
   extractRoomIds() {

@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import statistics
 
 from homeassistant.core import HomeAssistant
+from homeassistant.components.lightmap.helpers import get_sensors, get_sensor_range
 
 
 async def get_average_light_sensors(hass: HomeAssistant, hours=48) -> dict:
@@ -17,17 +18,8 @@ async def get_average_light_sensors(hass: HomeAssistant, hours=48) -> dict:
         dict of sensor average values over the period.
 
     """
-    all_states = hass.states.async_all()
 
-    light_sensors = [
-        state.entity_id
-        for state in all_states
-        if state.entity_id.startswith("sensor.")
-        and (
-            state.attributes.get("device_class") == "illuminance"
-            or state.attributes.get("unit_of_measurement") == "lux"
-        )
-    ]
+    light_sensors = get_sensors(hass)
 
     end_time = datetime.now()
     start_time = end_time - timedelta(hours=hours)
@@ -88,28 +80,6 @@ async def get_sensors_in_category_range(hass: HomeAssistant, category: str) -> d
                 within_category[entity_id] = average_value
 
     return within_category
-
-
-def get_sensor_range(hass: HomeAssistant, entity_id) -> tuple[float, float] | None:
-    """Retrieve the defined min and max range of a sensor.
-
-    Args:
-        hass: hass object to access states.
-        entity_id: sensor ID that range is from
-
-    Returns:
-        tuple{min, max} representing the range of the sensor
-
-    """
-    state = hass.states.get(entity_id)
-    if not state:
-        return None
-
-    min_value = state.attributes.get("min_value")
-    max_value = state.attributes.get("max_value")
-    if min_value is None or max_value is None:
-        return None
-    return min_value, max_value
 
 
 def is_number(value) -> bool:
