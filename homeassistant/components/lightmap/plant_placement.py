@@ -35,7 +35,7 @@ def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 
 class PlantInfoView(HomeAssistantView):
-    """HTTP endpoint to fetch plant information using Gemini API."""
+    """Endpoint to fetch plant information using Gemini API."""
 
     url = "/api/light-map/plant-info"
     name = "api:light-map:plant-info"
@@ -44,7 +44,7 @@ class PlantInfoView(HomeAssistantView):
 
 @bind_hass
 async def async_access_gemini(hass: HomeAssistant, plant_name: str | None) -> str:
-    """Return media player browse media results."""
+    """Return light density details from Gemini API based on the given plant name."""
 
     if not plant_name:
         raise HomeAssistantError("Plant name is required")
@@ -57,7 +57,7 @@ async def async_access_gemini(hass: HomeAssistant, plant_name: str | None) -> st
                     {
                         "text": f"""how much light density {plant_name} plant need from the categories: low, medium, high?
                         provide only the correct level if it is close enough to a valid plant name.
-                        If not return INVALID plant name. """
+                        If not return only INVALID. """
                     }
                 ]
             }
@@ -79,7 +79,7 @@ async def async_access_gemini(hass: HomeAssistant, plant_name: str | None) -> st
 
             # Parse the JSON response
             gemini_response = await response.json()
-
+            _LOGGER.debug("""Gemini API response: %s""", gemini_response)
             return (
                 gemini_response.get("candidates", [{}])[0]
                 .get("content", {})
@@ -105,9 +105,17 @@ async def websocket_chat_gemini(
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """Resolve media."""
+    """Return plant placement suggestions with regard to sensor details."""
     try:
         gemini_response = await async_access_gemini(hass, msg["plant_name"])
+
+        if gemini_response.lower() == "invalid":
+            connection.send_result(
+                msg["id"],
+                {"light_density": "INVALID PLANT NAME"},
+            )
+            return
+
         sensor_list = await get_sensors_in_category_range(hass, gemini_response.lower())
         connection.send_result(
             msg["id"],

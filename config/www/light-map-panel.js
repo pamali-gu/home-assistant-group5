@@ -443,22 +443,24 @@ class LightMapPanel extends LitElement {
       let sensorDetails = "";
 
       if (Object.keys(lightDensity).length === 0) {
-        sensorDetails = "There are no proper sensors placed at the moment.";
+        sensorDetails = `There are no suitable sensors to place ${this.chatInput} plants at the moment.`;
+      } else if (typeof (lightDensity) === 'string' && lightDensity.toUpperCase().trim() === "INVALID PLANT NAME") {
+        sensorDetails = `Invalid plant name. Please check and try again.`;
       } else {
         // Collect friendly names of the sensors with their light density
         const suggestions = Object.entries(lightDensity).map(
-          ([sensorId, density]) => {
+          ([sensorId]) => {
             const sensor = this.lightSensors.find(
               (s) => s.entity_id === sensorId
             );
             const friendlyName = sensor
               ? sensor.attributes?.friendly_name
               : sensorId;
-            return `- ${friendlyName},`;
+            return `${friendlyName},`;
           }
         );
 
-        sensorDetails = `You can place plants near the following sensors:\n${suggestions.join("\n")}`;
+        sensorDetails = `You can place ${this.chatInput} plants near the following sensors: \n ${suggestions.join("\n")}`;
       }
 
       // Update chat history with the API response
@@ -627,7 +629,7 @@ class LightMapPanel extends LitElement {
         padding-left: 20px;
       }
       .chat-icon {
-        position: absolute;
+        position: fixed;
         bottom: 16px;
         right: 16px;
         padding: 8px;
@@ -680,7 +682,7 @@ class LightMapPanel extends LitElement {
       .chat-panel {
         border: 1px solid #ccc;
         padding: 16px;
-        position: absolute;
+        position: fixed;
         bottom: 0;
         right: 0;
         max-width: 300px;
