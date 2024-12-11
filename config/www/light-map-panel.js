@@ -19,6 +19,7 @@ class LightMapPanel extends LitElement {
       chatHistory: { type: Array },
       chatInput: { type: String },
       isChatOpen: { type: Boolean, reflect: true },
+      hasSubmitted: { type: Boolean, reflect: true },
     };
   }
 
@@ -30,10 +31,11 @@ class LightMapPanel extends LitElement {
     this.selectedSensor = null;
     this.placedSensors = {};
     this.mockTimerInitialized = false;
-    // Chat-related state
+    // Plant suggestion related state
     this.chatHistory = [];
     this.chatInput = "";
     this.isChatOpen = false;
+    this.hasSubmitted = false;
   }
 
   updated(changedProperties) {
@@ -57,6 +59,29 @@ class LightMapPanel extends LitElement {
       )
     );
   }
+  UploadFromPath(filePath) {
+
+    // Fetch the file from the specified path
+    fetch(filePath)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Failed to load SVG file from path: ${filePath}`);
+        }
+      })
+      .then((svgContent) => {
+        this.uploadedSVG = svgContent;
+        localStorage.setItem("uploadedSVG", this.uploadedSVG);
+        this.extractRoomIds();
+        this.reuploadSVG();
+      })
+      .catch((error) => {
+        console.error("Error loading SVG:", error);
+        this.hass.callService("persistent_notification", "create", {
+          title: "File Load Error",
+          message: `Failed to load the SVG file: ${error.message}`,
+        });
+      });
+  }
 
   handleFileUpload(event) {
     const file = event.target.files[0];
@@ -67,37 +92,18 @@ class LightMapPanel extends LitElement {
     }
 
     if (file && file.type === "image/svg+xml") {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("media_content_id", "media-source://lightmap/local/uploads/");
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        this.uploadedSVG = e.target.result;
+        localStorage.setItem("uploadedSVG", this.uploadedSVG);
+        this.extractRoomIds();
+        this.requestUpdate();
 
-      fetch("/api/lightmap/storage_handler/upload", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${this.hass.auth.data.access_token}`,
-        },
-        body: formData,
-      })
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          return response.json();
-        })
-        .then((data) => {
-          console.log("Upload successful:", data);
-          this.hass.callService("persistent_notification", "create", {
-            title: "Successful File Upload",
-            message: "SVG uploaded successfully!",
-          });
-        })
-        .catch((error) => {
-          console.error("Error uploading file:", error);
-          this.hass.callService("persistent_notification", "create", {
-            title: "File Upload Failed",
-            message: "Failed to upload the SVG file!",
-          });
-        });
+        // Call the shared upload logic
+        const formData = this.createFormData(file);
+        this.uploadSVG(formData, "Successful File Upload", "SVG uploaded successfully!");
+      };
+      reader.readAsText(file);
     } else {
       this.hass.callService("persistent_notification", "create", {
         title: "Invalid File",
@@ -106,6 +112,86 @@ class LightMapPanel extends LitElement {
     }
   }
 
+  reuploadSVG() {
+    if (!this.hass) {
+      console.error("hass is not defined");
+      return;
+    }
+
+    try {
+      // Parse the SVG to ensure it is valid
+      const parser = new DOMParser();
+      const svgDoc = parser.parseFromString(this.uploadedSVG, "image/svg+xml");
+      const serializer = new XMLSerializer();
+      const serializedSVG = serializer.serializeToString(svgDoc);
+
+      // Create the Blob from the properly serialized SVG
+      const blob = new Blob([serializedSVG], { type: "image/svg+xml" });
+
+      // Create FormData and upload
+      const formData = this.createFormData(blob);
+      this.uploadSVG(formData, "SVG Updated", "The SVG has been successfully updated with the new sensor placement.");
+    } catch (error) {
+      console.error("Error serializing SVG:", error);
+    }
+  }
+
+  createFormData(file, filename = "Floorplan.svg") {
+    const formData = new FormData();
+    formData.append("file", file, filename);
+    formData.append("media_content_id", "media-source://lightmap/local/uploads/");
+    return formData;
+  }
+
+  uploadSVG(formData, successTitle, successMessage) {
+    fetch("/api/lightmap/storage_handler/upload", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${this.hass.auth.data.access_token}`,
+      },
+      body: formData,
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then((data) => {
+        console.log("SVG upload successful:", data);
+        this.hass.callService("persistent_notification", "create", {
+          title: successTitle,
+          message: successMessage,
+        });
+      })
+      .catch((error) => {
+        console.error("Error uploading SVG:", error);
+        this.hass.callService("persistent_notification", "create", {
+          title: `${successTitle} Failed`,
+          message: `Failed to upload the SVG: ${error.message}`,
+        });
+      });
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+
+    const savedSVG = localStorage.getItem("uploadedSVG");
+    if (savedSVG) {
+      this.uploadedSVG = savedSVG;
+
+
+      this.requestUpdate().then(() => {
+        this.renderPlacedSensors();
+        this.extractRoomIds();
+      });
+    }
+    // Restore placed sensors
+    const savedPlacedSensors = localStorage.getItem("placedSensors");
+    if (savedPlacedSensors) {
+      this.placedSensors = JSON.parse(savedPlacedSensors);
+    }
+  }
 
   extractRoomIds() {
     const parser = new DOMParser();
@@ -120,16 +206,23 @@ class LightMapPanel extends LitElement {
 
   onSensorClick(sensor) {
     if (this.isSensorAlreadyPlaced(sensor.id)) {
-      alert("This sensor has already been placed");
+      this.hass.callService("persistent_notification", "create", {
+        title: "Sensor Already Placed",
+        message: "This sensor has already been placed.",
+      });
       return;
     }
     this.selectedSensor = sensor;
-    alert(`Selected sensor: ${sensor.attributes?.friendly_name}`);
+    this.hass.callService("persistent_notification", "create", {
+      title: "Sensor Selected:",
+      message: `${sensor.attributes?.friendly_name}`,
+    });
   }
 
   isSensorAlreadyPlaced(sensorId) {
+
     return Object.values(this.placedSensors).some((sensors) =>
-      sensors.some((placedSensor) => placedSensor.id === sensorId)
+      sensors.some((placedSensor) => placedSensor.attributes.unique_id  === sensorId)
     );
   }
 
@@ -179,7 +272,10 @@ class LightMapPanel extends LitElement {
 
   handleSVGClick(event) {
     if (!this.selectedSensor) {
-      alert("Please select a sensor first.");
+      this.hass.callService("persistent_notification", "create", {
+        title: "No Sensor Selected:",
+        message: "Please select a sensor to place.",
+      });
       return;
     }
 
@@ -199,18 +295,24 @@ class LightMapPanel extends LitElement {
     //Ensure the placement is inside a room
     const roomId = this.getRoomFromCoordinates(x, y);
     if (!roomId) {
-      alert("Sensor placement is outside of any room.");
+      this.hass.callService("persistent_notification", "create", {
+        title: "Invalid Sensor Placement",
+        message: "Sensor placement is outside of any room.",
+      });
       return;
     }
 
     //Check if the sensor is already placed
-    if (this.isSensorAlreadyPlaced(this.selectedSensor.id)) {
-      alert("This sensor has already been placed.");
+    if (this.isSensorAlreadyPlaced(this.selectedSensor.attributes?.unique_id)) {
+      this.hass.callService("persistent_notification", "create", {
+        title: "Sensor Already Placed",
+        message: "This sensor has already been placed.",
+      });
       return;
     }
 
     //Generate a random color for the sensor
-    const randomColor = `#${Math.floor(Math.random() * 16777215).toString(16)}`;
+    const randomColor = `#${Math.floor(Math.random() * 0x7f7f7f).toString(16).padStart(6, '0')}`;
 
     //Add sensor to the placedSensors list
     if (!this.placedSensors[roomId]) {
@@ -223,75 +325,104 @@ class LightMapPanel extends LitElement {
       color: randomColor,
     });
 
-    //Parse the SVG and add the circle and wavy lines
+    this.savePlacedSensors();
+    this.renderPlacedSensors();
+    this.selectedSensor = null;
+    this.requestUpdate();
+  }
+
+  renderPlacedSensors() {
+    if (!this.uploadedSVG || !this.placedSensors) {
+      return;
+    }
+
     const parser = new DOMParser();
     const svgDoc = parser.parseFromString(this.uploadedSVG, "image/svg+xml");
 
-    //Create a group to hold the sensor elements (circle and wavy lines)
-    const groupElement = svgDoc.createElementNS("http://www.w3.org/2000/svg", "g");
-    groupElement.setAttribute("transform", `translate(${x}, ${y})`);
-    groupElement.setAttribute("id", this.selectedSensor.id);
+    // Loop through placed sensors and render them
+    for (const [roomId, sensors] of Object.entries(this.placedSensors)) {
+      sensors.forEach((sensor) => {
 
-    const circle = svgDoc.createElementNS("http://www.w3.org/2000/svg", "circle");
-    circle.setAttribute("cx", 0);
-    circle.setAttribute("cy", 0);
-    circle.setAttribute("r", "2");
-    circle.setAttribute("stroke", randomColor);
-    circle.setAttribute("stroke-width", "1");
-    circle.setAttribute("fill", "none");
+        const existingSensor = svgDoc.querySelector(`circle[id="${sensor.attributes.unique_id}"]`);
 
-    const wavyLine1 = svgDoc.createElementNS("http://www.w3.org/2000/svg", "path");
-    wavyLine1.setAttribute(
-      "d",
-      "M-1.5 0 Q-1 1, 0 0 Q1 -1, 1.5 0"
-    );
-    wavyLine1.setAttribute("stroke", randomColor);
-    wavyLine1.setAttribute("stroke-width", "1");
-    wavyLine1.setAttribute("fill", "none");
+        // Skip rendering if the sensor already exists
+        if (existingSensor) {
+          return;
+        }
 
-    const wavyLine2 = svgDoc.createElementNS("http://www.w3.org/2000/svg", "path");
-    wavyLine2.setAttribute(
-      "d",
-      "M-1.5 0.5 Q-1 1.5, 0 0.5 Q1 -0.5, 1.5 0.5"
-    );
-    wavyLine2.setAttribute("stroke", randomColor);
-    wavyLine2.setAttribute("stroke-width", "1");
-    wavyLine2.setAttribute("fill", "none");
+        const groupElement = svgDoc.createElementNS("http://www.w3.org/2000/svg", "g");
+        // groupElement.setAttribute("transform", `translate(${}, ${sensor.y})`);
+        //groupElement.setAttribute("id", sensor.attributes?.unique_id);
 
-    //Append the circle and wavy lines to the group
-    groupElement.appendChild(circle);
-    groupElement.appendChild(wavyLine1);
-    groupElement.appendChild(wavyLine2);
+        const circle = svgDoc.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("id", sensor.attributes?.unique_id);
+        circle.setAttribute("cx", sensor.x);
+        circle.setAttribute("cy", sensor.y);
+        circle.setAttribute("r", "2");
+        circle.setAttribute("stroke", sensor.color);
+        circle.setAttribute("stroke-width", "1");
+        circle.setAttribute("fill", "none");
 
-    svgDoc.documentElement.appendChild(groupElement);
+        const wavyLine1 = svgDoc.createElementNS("http://www.w3.org/2000/svg", "path");
+        wavyLine1.setAttribute("d", "M-1.5 0 Q-1 1, 0 0 Q1 -1, 1.5 0");
+        wavyLine1.setAttribute("stroke", sensor.color);
+        wavyLine1.setAttribute("stroke-width", "0.5");
+        wavyLine1.setAttribute("fill", "none");
 
+        const wavyLine2 = svgDoc.createElementNS("http://www.w3.org/2000/svg", "path");
+        wavyLine2.setAttribute("d", "M-1.5 0.5 Q-1 1.5, 0 0.5 Q1 -0.5, 1.5 0.5");
+        wavyLine2.setAttribute("stroke", sensor.color);
+        wavyLine2.setAttribute("stroke-width", "0.5");
+        wavyLine2.setAttribute("fill", "none");
+
+        // Append elements to the group
+        groupElement.appendChild(circle);
+        groupElement.appendChild(wavyLine1);
+        groupElement.appendChild(wavyLine2);
+
+        // Append group to the SVG
+        svgDoc.documentElement.appendChild(groupElement);
+      });
+    }
+
+    // Serialize the updated SVG and save it
     const serializer = new XMLSerializer();
     this.uploadedSVG = serializer.serializeToString(svgDoc);
+
+    this.reuploadSVG();
 
     this.selectedSensor = null;
     this.requestUpdate();
   }
 
+  savePlacedSensors() {
+    localStorage.setItem("placedSensors", JSON.stringify(this.placedSensors));
+  }
 
   removeSensor(roomId, sensorIndex, sensor) {
+    console.log(this.placedSensors);
     this.placedSensors[roomId].splice(sensorIndex, 1);
     if (this.placedSensors[roomId].length === 0) {
       delete this.placedSensors[roomId];
     }
+    console.log(this.placedSensors);
+    localStorage.setItem("placedSensors", JSON.stringify(this.placedSensors));
 
     //Update the SVG to remove the group containing the sensor elements
     const parser = new DOMParser();
     const svgDoc = parser.parseFromString(this.uploadedSVG, "image/svg+xml");
 
     //Find the group by the sensor ID
-    const groupElement = svgDoc.querySelector(`g[id="${sensor.id}"]`);
-    if (groupElement) {
-      groupElement.remove();
+    const element = svgDoc.querySelector(`circle[id="${sensor.attributes?.unique_id}"]`);
+    if (element && element.parentNode) {
+      const parent = element.parentNode;
+      parent.remove();
     }
 
     const serializer = new XMLSerializer();
     this.uploadedSVG = serializer.serializeToString(svgDoc);
-
+    localStorage.setItem("uploadedSVG", this.uploadedSVG);
+    this.reuploadSVG();
     this.requestUpdate();
   }
 
@@ -306,15 +437,35 @@ class LightMapPanel extends LitElement {
         type: "light-map/plant-info", // The WebSocket message type
         plant_name: this.chatInput, // Payload data
       });
-      console.log(data);
       // Handle the response from the WebSocket
       const responseText = data || "No response received";
+      const lightDensity = responseText["light_density"];
+      let sensorDetails = "";
+
+      if (Object.keys(lightDensity).length === 0) {
+        sensorDetails = "There are no proper sensors placed at the moment.";
+      } else {
+        // Collect friendly names of the sensors with their light density
+        const suggestions = Object.entries(lightDensity).map(
+          ([sensorId, density]) => {
+            const sensor = this.lightSensors.find(
+              (s) => s.entity_id === sensorId
+            );
+            const friendlyName = sensor
+              ? sensor.attributes?.friendly_name
+              : sensorId;
+            return `- ${friendlyName},`;
+          }
+        );
+
+        sensorDetails = `You can place plants near the following sensors:\n${suggestions.join("\n")}`;
+      }
 
       // Update chat history with the API response
       this.chatHistory = [
         ...this.chatHistory,
         { user: true, text: this.chatInput },
-        { user: false, text: responseText["light_density"] },
+        { user: false, text: sensorDetails },
       ];
 
       // Clear the input field
@@ -326,7 +477,7 @@ class LightMapPanel extends LitElement {
         message: `Failed to fetch plant information via WebSocket: ${error.message}`,
       });
     }
-}
+  }
 
   render() {
     return html`
@@ -399,34 +550,52 @@ class LightMapPanel extends LitElement {
             : html`<p>No light sensors detected.</p>`}
         </div>
       </div>
-         <div class="chat-icon" @click="${this.toggleChat}">
+
+      <div class="chat-icon" @click="${this.toggleChat}">
           ${this.isChatOpen
       ? html`<i class="fas fa-times"></i>`
       : html`<img src="/local/image/pm_logo.png" alt="Chat" class="icon" />`}
       </div>
 
-      ${this.isChatOpen ? html`
-        <div class="chat-panel ${this.isChatOpen ? 'open' : 'closed'}">
-          <button class="close-button" @click="${this.toggleChat}">X</button>
-          <h3>Suggestions for Plant Placement</h3>
-          <div class="chat-history">
-            ${this.chatHistory.map(
-              (message) => html`
-                <p class="${message.user ? 'user-message' : 'bot-message'}">
-                  ${message.text}
-                </p>
-              `
-            )}
-          </div>
-          <input
-            type="text"
-            .value="${this.chatInput}"
-            @input="${(e) => (this.chatInput = e.target.value)}"
-            placeholder="Enter a plant name..."
-          />
-          <button @click="${() => this.sendMessageToAPI(this.chatInput)}">Send</button>
-        </div>
-      ` : null}
+      ${this.isChatOpen
+        ? html`
+            <div class="chat-panel ${this.isChatOpen ? "open" : "closed"}">
+              <button class="close-button" @click="${this.toggleChat}">X</button>
+              <h3>Suggestions for Plant Placement</h3>
+              ${this.hasSubmitted
+                ? html`
+                    <div class="chat-history">
+                      ${this.chatHistory.map(
+                        (message) => html`
+                          <p
+                            class="${message.user
+                              ? "user-message"
+                              : "bot-message"}">
+                            ${message.text}
+                          </p>
+                        `
+                      )}
+                    </div>
+                  `
+                : null}
+              <input
+                type="text"
+                class="search-field"
+                .value="${this.chatInput}"
+                @input="${(e) => (this.chatInput = e.target.value)}"
+                placeholder="Enter a plant name..."
+              />
+              <button
+                class="send-button"
+                @click="${() => {
+                  this.sendMessageToAPI(this.chatInput);
+                  this.hasSubmitted = true;
+                }}">
+                Send
+              </button>
+            </div>
+          `
+        : null}
     `;
   }
 
@@ -485,7 +654,28 @@ class LightMapPanel extends LitElement {
         border: none;
         font-size: 16px;
         cursor: pointer;
-        background-color: var(--light-primary-color);
+        background-color: var(white, --card-background-color);
+      }
+      .send-button {
+        background-color: var(--primary-color, #007bff);
+        color: var(--button-text-color, white);
+        border: none;
+        padding: 12px 12px;
+        font-size: 14px;
+        border-radius: 4px;
+        cursor: pointer;
+        width: 60%;
+        float: right;
+        transition: background-color 0.3s ease, transform 0.2s ease;
+      }
+      .search-field {
+        width: 90%;
+        padding: 15px 12px;
+        font-size: 14px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        outline: none;
+        transition: border-color 0.3s ease, box-shadow 0.3s ease;
       }
       .chat-panel {
         border: 1px solid #ccc;
@@ -493,11 +683,12 @@ class LightMapPanel extends LitElement {
         position: absolute;
         bottom: 0;
         right: 0;
-        max-width: 200px;
-        height: 300px;
+        max-width: 300px;
+        height: fit-content;
         overflow: auto;
-        background-color: #fff;
+        background-color: var(--card-background-color, white);
         box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.2);
+        border-radius: 10px;
         transition: all 0.3s ease-in-out;
       }
       .chat-panel.open {
@@ -506,17 +697,17 @@ class LightMapPanel extends LitElement {
       .chat-panel.closed {
         transform: translateY(100%);
       }
-       .chat-history {
+      .chat-history {
         max-height: 200px;
         overflow-y: auto;
         margin-bottom: 8px;
         border: 1px solid #ccc;
         padding: 8px;
-        background: #f9f9f9;
+        background: var(--card-background-color, white);
       }
       .user-message {
         text-align: right;
-        color: blue;
+        color: var(--primary-color, #007bff);
       }
       .bot-message {
         text-align: left;
