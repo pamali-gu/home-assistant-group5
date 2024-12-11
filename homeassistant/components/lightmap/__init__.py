@@ -83,12 +83,11 @@ def _initialize_lightmap(
 
     lightmap_sensors = []
     for sensor in light_sensors:
-        max_reading, min_reading = get_sensor_range(hass, sensor)
         lightmap_sensors.append(
             LightMapSensor(
                 sensor_svg_id=sensor,
-                sensor_max=max_reading,
-                sensor_min=min_reading,
+                sensor_max=0,
+                sensor_min=4095,
                 hass=hass,
                 svg_containing_sensor_path=svg_path,  # Remove when have storage merged
             ),
