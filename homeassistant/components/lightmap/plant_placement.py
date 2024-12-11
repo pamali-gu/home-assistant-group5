@@ -14,6 +14,8 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.typing import ConfigType
 
+from .suggestion_helper import get_sensors_in_category_range
+
 _LOGGER = logging.getLogger(__name__)
 
 # Define the Gemini API URL
@@ -106,10 +108,10 @@ async def websocket_chat_gemini(
     """Resolve media."""
     try:
         gemini_response = await async_access_gemini(hass, msg["plant_name"])
-
+        sensor_list = await get_sensors_in_category_range(hass, gemini_response.lower())
         connection.send_result(
             msg["id"],
-            {"light_density": gemini_response},
+            {"light_density": sensor_list},
         )
     except HomeAssistantError as ex:
         _LOGGER.error("Error requesting gemini: %s", ex)

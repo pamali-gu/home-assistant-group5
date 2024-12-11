@@ -28,9 +28,13 @@ homeassistant:
 sensor:
   - platform: template
     sensors:
-      mock_light_sensor:
+      mock_light_sensor_1:
         friendly_name: "mock_sensor_1"
         unit_of_measurement: "lux"
+        attribute_templates:
+          unique_id: "mock_light_1"
+          min_value: 50
+          max_value: 100
         value_template: >
           {% set time = now().hour %}
           {% if time >= 6 and time < 18 %}
@@ -41,6 +45,10 @@ sensor:
       mock_light_sensor_2:
         friendly_name: "mock_sensor_2"
         unit_of_measurement: "lux"
+        attribute_templates:
+          unique_id: "mock_light_2"
+          min_value: 0
+          max_value: 300
         value_template: >
           {% set time = now().hour %}
           {% if time >= 6 and time < 18 %}

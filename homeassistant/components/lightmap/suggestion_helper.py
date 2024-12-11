@@ -1,6 +1,6 @@
 """Handles helper functions for the suggestion feature."""
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 import statistics
 
 from homeassistant.core import HomeAssistant
@@ -35,8 +35,8 @@ async def get_average_light_sensors(hass: HomeAssistant, hours=48) -> dict:
     history = await hass.async_add_executor_job(
         hass.components.recorder.history.get_significant_states,
         hass,
-        start_time,
-        end_time,
+        start_time.astimezone(UTC),
+        end_time.astimezone(UTC),
         light_sensors,
     )
 
@@ -71,6 +71,8 @@ async def get_sensors_in_category_range(hass: HomeAssistant, category: str) -> d
             if sensor_range is None:
                 continue
             min_value, max_value = sensor_range
+            min_value = int(min_value)
+            max_value = int(max_value)
             updated_max = (
                 max_value - min_value if min_value >= 0 else max_value + abs(min_value)
             )
