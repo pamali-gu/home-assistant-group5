@@ -445,27 +445,29 @@ class LightMapPanel extends LitElement {
       // Handle the response from the WebSocket
       const responseText = data || "No response received";
       const lightDensity = responseText["light_density"];
+      const message = responseText["message"];
+      const sensorList = responseText["sensors"];
       let sensorDetails = "";
 
-      if (Object.keys(lightDensity).length === 0) {
-        sensorDetails = `There are no suitable sensors to place ${this.chatInput} plants at the moment.`;
-      } else if (typeof (lightDensity) === 'string' && lightDensity.toUpperCase().trim() === "INVALID PLANT NAME") {
+      if (Object.keys(sensorList).length === 0 && lightDensity !== "INVALID") {
+        sensorDetails = `Your "${this.chatInput}" plant needs "${lightDensity}" level of light density.
+          There are no suitable sensors to place at the moment.`;
+      } else if (message.toUpperCase().trim() === "INVALID PLANT NAME") {
         sensorDetails = `Invalid plant name. Please check and try again.`;
       } else {
         // Collect friendly names of the sensors with their light density
-        const suggestions = Object.entries(lightDensity).map(
-          ([sensorId]) => {
-            const sensor = this.lightSensors.find(
-              (s) => s.entity_id === sensorId
-            );
-            const friendlyName = sensor
-              ? sensor.attributes?.friendly_name
-              : sensorId;
-            return `${friendlyName},`;
-          }
-        );
+        const suggestions = Object.entries(sensorList).map(([sensorId]) => {
+          const sensor = this.lightSensors.find(
+            (s) => s.entity_id === sensorId
+          );
+          const friendlyName = sensor
+            ? sensor.attributes?.friendly_name
+            : sensorId;
+          return `${friendlyName},`;
+        });
 
-        sensorDetails = `You can place ${this.chatInput} plants near the following sensors: \n ${suggestions.join("\n")}`;
+        sensorDetails = `Your "${this.chatInput}" plant needs "${lightDensity}" level of light density.
+          You can place the plant near the following sensors: \n ${suggestions.join("\n")}`;
       }
 
       // Update chat history with the API response
