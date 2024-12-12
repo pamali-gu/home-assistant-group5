@@ -111,13 +111,24 @@ async def websocket_chat_gemini(
         if gemini_response.lower() == "invalid" or all(
             word not in gemini_response.lower() for word in ("low", "medium", "high")
         ):
-            connection.send_result(msg["id"], {"light_density": "INVALID PLANT NAME"})
+            connection.send_result(
+                msg["id"],
+                {
+                    "light_density": gemini_response,
+                    "sensors": {},
+                    "message": "INVALID PLANT NAME",
+                },
+            )
             return
 
         sensor_list = await get_sensors_in_category_range(hass, gemini_response.lower())
         connection.send_result(
             msg["id"],
-            {"light_density": sensor_list},
+            {
+                "light_density": gemini_response,
+                "sensors": sensor_list,
+                "message": "SUCCESS",
+            },
         )
     except HomeAssistantError as ex:
         _LOGGER.error("Error requesting gemini: %s", ex)
