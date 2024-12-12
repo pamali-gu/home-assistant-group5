@@ -17,6 +17,20 @@ def get_sensors(hass: HomeAssistant) -> list:
     ]
 
 
+def get_sensor_entities(hass: HomeAssistant) -> list:
+    """Retrieve all lightmap sensor entities."""
+    all_states = hass.states.async_all()
+    return [
+        state.entity_id
+        for state in all_states
+        if state.entity_id.startswith("sensor.")
+        and (
+            state.attributes.get("device_class") == "illuminance"
+            or state.attributes.get("unit_of_measurement") == "lux"
+        )
+    ]
+
+
 def get_sensor_unique_ids(hass: HomeAssistant) -> list:
     """Retrieve all unique IDs of the ligthmap sensor."""
 

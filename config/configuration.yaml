@@ -33,36 +33,48 @@ sensor:
         unit_of_measurement: "lux"
         attribute_templates:
           unique_id: "mock_light_1"
+          min_value: 50
+          max_value: 300
         value_template: "4095"
       mock_light_sensor_2:
         friendly_name: "light_sensor_2"
         unit_of_measurement: "lux"
         attribute_templates:
           unique_id: "mock_light_2"
+          min_value: 0
+          max_value: 700
         value_template: "200"
       mock_light_sensor_3:
         friendly_name: "light_sensor_3"
         unit_of_measurement: "lux"
         attribute_templates:
           unique_id: "mock_light_3"
+          min_value: 200
+          max_value: 950
         value_template: "2098"
       mock_light_sensor_4:
         friendly_name: "light_sensor_4"
         unit_of_measurement: "lux"
         attribute_templates:
           unique_id: "mock_light_4"
+          min_value: 0
+          max_value: 250
         value_template: "3123"
       mock_light_sensor_5:
         friendly_name: "light_sensor_5"
         unit_of_measurement: "lux"
         attribute_templates:
           unique_id: "mock_light_5"
+          min_value: 500
+          max_value: 1100
         value_template: "1427"
       mock_light_sensor_6:
         friendly_name: "light_sensor_6"
         unit_of_measurement: "lux"
         attribute_templates:
           unique_id: "mock_light_6"
+          min_value: 330
+          max_value: 840
         value_template: "2703"
 
 lightmap:

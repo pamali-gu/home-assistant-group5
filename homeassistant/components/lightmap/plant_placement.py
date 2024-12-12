@@ -79,7 +79,6 @@ async def async_access_gemini(hass: HomeAssistant, plant_name: str | None) -> st
 
             # Parse the JSON response
             gemini_response = await response.json()
-            _LOGGER.debug("""Gemini API response: %s""", gemini_response)
             return (
                 gemini_response.get("candidates", [{}])[0]
                 .get("content", {})

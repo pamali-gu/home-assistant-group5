@@ -3,8 +3,9 @@
 from datetime import UTC, datetime, timedelta
 import statistics
 
-from homeassistant.components.lightmap.helpers import get_sensor_range, get_sensors
 from homeassistant.core import HomeAssistant
+
+from .helpers import get_sensor_entities, get_sensor_range
 
 
 async def get_average_light_sensors(hass: HomeAssistant, hours=48) -> dict:
@@ -19,7 +20,7 @@ async def get_average_light_sensors(hass: HomeAssistant, hours=48) -> dict:
 
     """
 
-    light_sensors = get_sensors(hass)
+    light_sensors = get_sensor_entities(hass)
 
     end_time = datetime.now()
     start_time = end_time - timedelta(hours=hours)
