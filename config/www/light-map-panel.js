@@ -718,7 +718,7 @@ class LightMapPanel extends LitElement {
       }
       .bot-message {
         text-align: left;
-        color: green;
+        color: #4fe14f;
       }
       input {
         width: calc(100% - 24px);
