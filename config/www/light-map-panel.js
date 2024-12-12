@@ -16,6 +16,10 @@ class LightMapPanel extends LitElement {
       lightSensors: { type: Array },
       selectedSensor: { type: Object },
       placedSensors: { type: Object },
+      chatHistory: { type: Array },
+      chatInput: { type: String },
+      isChatOpen: { type: Boolean, reflect: true },
+      hasSubmitted: { type: Boolean, reflect: true },
     };
   }
 
@@ -27,6 +31,11 @@ class LightMapPanel extends LitElement {
     this.selectedSensor = null;
     this.placedSensors = {};
     this.mockTimerInitialized = false;
+    // Plant suggestion related state
+    this.chatHistory = [];
+    this.chatInput = "";
+    this.isChatOpen = false;
+    this.hasSubmitted = false;
   }
 
   updated(changedProperties) {
@@ -422,6 +431,63 @@ class LightMapPanel extends LitElement {
     this.requestUpdate();
   }
 
+  toggleChat() {
+    this.isChatOpen = !this.isChatOpen;
+  }
+
+  async sendMessageToAPI() {
+    try {
+      // Send the WebSocket request using hass.callWS
+      const data = await this.hass.callWS({
+        type: "light-map/plant-info", // The WebSocket message type
+        plant_name: this.chatInput, // Payload data
+      });
+      // Handle the response from the WebSocket
+      const responseText = data || "No response received";
+      const lightDensity = responseText["light_density"];
+      const message = responseText["message"];
+      const sensorList = responseText["sensors"];
+      let sensorDetails = "";
+
+      if (Object.keys(sensorList).length === 0 && lightDensity !== "INVALID") {
+        sensorDetails = `Your "${this.chatInput}" plant needs "${lightDensity}" level of light density.
+          There are no suitable sensors to place at the moment.`;
+      } else if (message.toUpperCase().trim() === "INVALID PLANT NAME") {
+        sensorDetails = `Invalid plant name. Please check and try again.`;
+      } else {
+        // Collect friendly names of the sensors with their light density
+        const suggestions = Object.entries(sensorList).map(([sensorId]) => {
+          const sensor = this.lightSensors.find(
+            (s) => s.entity_id === sensorId
+          );
+          const friendlyName = sensor
+            ? sensor.attributes?.friendly_name
+            : sensorId;
+          return `${friendlyName},`;
+        });
+
+        sensorDetails = `Your "${this.chatInput}" plant needs "${lightDensity}" level of light density.
+          You can place the plant near the following sensors: \n ${suggestions.join("\n")}`;
+      }
+
+      // Update chat history with the API response
+      this.chatHistory = [
+        ...this.chatHistory,
+        { user: true, text: this.chatInput },
+        { user: false, text: sensorDetails },
+      ];
+
+      // Clear the input field
+      this.chatInput = "";
+    } catch (error) {
+      // Handle errors and notify the user
+      this.hass.callService("persistent_notification", "create", {
+        title: "Error occurred",
+        message: `Failed to fetch plant information via WebSocket: ${error.message}`,
+      });
+    }
+  }
+
   render() {
     return html`
       <h1>Light Map Panel</h1>
@@ -493,6 +559,52 @@ class LightMapPanel extends LitElement {
             : html`<p>No light sensors detected.</p>`}
         </div>
       </div>
+
+      <div class="chat-icon" @click="${this.toggleChat}">
+          ${this.isChatOpen
+      ? html`<i class="fas fa-times"></i>`
+      : html`<img src="/local/image/pm_logo.png" alt="Chat" class="icon" />`}
+      </div>
+
+      ${this.isChatOpen
+        ? html`
+            <div class="chat-panel ${this.isChatOpen ? "open" : "closed"}">
+              <button class="close-button" @click="${this.toggleChat}">X</button>
+              <h3>Suggestions for Plant Placement</h3>
+              ${this.hasSubmitted
+                ? html`
+                    <div class="chat-history">
+                      ${this.chatHistory.map(
+                        (message) => html`
+                          <p
+                            class="${message.user
+                              ? "user-message"
+                              : "bot-message"}">
+                            ${message.text}
+                          </p>
+                        `
+                      )}
+                    </div>
+                  `
+                : null}
+              <input
+                type="text"
+                class="search-field"
+                .value="${this.chatInput}"
+                @input="${(e) => (this.chatInput = e.target.value)}"
+                placeholder="Enter a plant name..."
+              />
+              <button
+                class="send-button"
+                @click="${() => {
+                  this.sendMessageToAPI(this.chatInput);
+                  this.hasSubmitted = true;
+                }}">
+                Send
+              </button>
+            </div>
+          `
+        : null}
     `;
   }
 
@@ -522,6 +634,97 @@ class LightMapPanel extends LitElement {
       }
       ul {
         padding-left: 20px;
+      }
+      .chat-icon {
+        position: fixed;
+        bottom: 16px;
+        right: 16px;
+        padding: 8px;
+        border-radius: 50%;
+        cursor: pointer;
+        background-color: #ffffff;
+        font-size: 1.2rem;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 40px;
+        width: 40px;
+      }
+      .icon {
+        width: 100%;
+        height: 100%;
+        object-fit: contain; /* Ensures the image fits well */
+      }
+      .close-button {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+        background-color: var(white, --card-background-color);
+      }
+      .send-button {
+        background-color: var(--primary-color, #007bff);
+        color: var(--button-text-color, white);
+        border: none;
+        padding: 12px 12px;
+        font-size: 14px;
+        border-radius: 4px;
+        cursor: pointer;
+        width: 60%;
+        float: right;
+        transition: background-color 0.3s ease, transform 0.2s ease;
+      }
+      .search-field {
+        width: 90%;
+        padding: 15px 12px;
+        font-size: 14px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        outline: none;
+        transition: border-color 0.3s ease, box-shadow 0.3s ease;
+      }
+      .chat-panel {
+        border: 1px solid #ccc;
+        padding: 16px;
+        position: fixed;
+        bottom: 0;
+        right: 0;
+        max-width: 300px;
+        height: fit-content;
+        overflow: auto;
+        background-color: var(--card-background-color, white);
+        box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.2);
+        border-radius: 10px;
+        transition: all 0.3s ease-in-out;
+      }
+      .chat-panel.open {
+        transform: translateY(0);
+      }
+      .chat-panel.closed {
+        transform: translateY(100%);
+      }
+      .chat-history {
+        max-height: 200px;
+        overflow-y: auto;
+        margin-bottom: 8px;
+        border: 1px solid #ccc;
+        padding: 8px;
+        background: var(--card-background-color, white);
+      }
+      .user-message {
+        text-align: right;
+        color: var(--primary-color, #007bff);
+      }
+      .bot-message {
+        text-align: left;
+        color: #4fe14f;
+      }
+      input {
+        width: calc(100% - 24px);
+        margin-bottom: 8px;
       }
     `;
   }

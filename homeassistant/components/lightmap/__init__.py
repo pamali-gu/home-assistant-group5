@@ -5,36 +5,36 @@ from sensors using an SVG-based floorplan.
 """
 
 from __future__ import annotations
-import asyncio
-import aiofiles
 
+import asyncio
 from datetime import timedelta
 import logging
-from typing import Protocol
+import os
 from pathlib import Path
+from typing import Protocol
 
+import aiofiles
+
+from homeassistant.components.lightmap.helpers import (
+    get_sensor_range,
+    get_sensor_unique_ids,
+)
+from homeassistant.components.lightmap.lightmap import LightMapSensor
 from homeassistant.components.media_source import (
     MediaSource,
     MediaSourceError,
     MediaSourceItem,
 )
-
-from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.typing import ConfigType
-from homeassistant.components.lightmap.lightmap import LightMapSensor
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.event import async_track_time_interval
-from homeassistant.components.lightmap.helpers import (
-    get_sensor_range,
-    get_sensor_unique_ids,
-)
-import os
+from homeassistant.helpers.typing import ConfigType
 
 DOMAIN = "lightmap"
 LOGGER = logging.getLogger(__name__)
 MEDIA_DIR = Path("config/media/")
 
-from . import storage_handler
+from . import plant_placement, storage_handler
 from .const import (
     DOMAIN,
     MEDIA_CLASS_MAP,
@@ -42,7 +42,7 @@ from .const import (
     URI_SCHEME,
     URI_SCHEME_REGEX,
 )
-
+from .plant_placement import PlantInfoView
 
 __all__ = [
     "DOMAIN",
@@ -99,10 +99,10 @@ def _initialize_lightmap(
         )
 
     async def periodic_lightmap_update(_now):
-        """Action for periodically updating the lightmap"""
+        """Action for periodically updating the lightmap."""
         for sensor in lightmap_sensors:
             sensor.update_lightmap()
-        async with aiofiles.open(svg_path, mode="r", encoding="utf-8") as svg_file:
+        async with aiofiles.open(svg_path, encoding="utf-8") as svg_file:
             svg_content = await svg_file.read()
         hass.bus.fire("lightmap_update_event", {"svg": svg_content})
         LOGGER.info("Lightmap update event has been fired")
@@ -111,9 +111,11 @@ def _initialize_lightmap(
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Setup the lightmap component"""
+    """Setup the lightmap component."""
     hass.data[DOMAIN] = {}
+    hass.http.register_view(PlantInfoView())
     storage_handler.async_setup(hass)
+    plant_placement.async_setup(hass, config)
 
     svg_files = await asyncio.to_thread(lambda: list(MEDIA_DIR.glob("*.svg")))
     if svg_files:
